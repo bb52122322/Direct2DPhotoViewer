@@ -28,6 +28,7 @@ void Direct2DWindow::run() {
 			DispatchMessage(&message);
 		}
 		OnKeyboard();
+		
 		OnRender();
 
 	}
@@ -36,42 +37,12 @@ void Direct2DWindow::run() {
 void Direct2DWindow::OnKeyboard() {
 	if (GetForegroundWindow() == window) {
 		RECT rect;
-		GetWindowRect(window, &rect);
-
 		if (GetAsyncKeyState(VK_ESCAPE) & 0x1) {
 			PostQuitMessage(0);
 
 		}
 		// NO CONTROL KEY PRESS
 		if (GetKeyState(VK_CONTROL) >= 0) {
-
-			if (GetKeyState('W') < 0) {
-				SetWindowPos(window, nullptr, rect.left, rect.top - 20, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
-			}
-			if (GetKeyState('A') < 0) {
-				SetWindowPos(window, nullptr, rect.left - 20, rect.top, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
-
-			}
-			if (GetKeyState('S') < 0) {
-				SetWindowPos(window, nullptr, rect.left, rect.top + 20, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
-			}
-			if (GetKeyState('D') < 0) {
-				SetWindowPos(window, nullptr, rect.left + 20, rect.top, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
-
-			}
-			if (GetKeyState('Q') < 0) {
-				scale_ = scale_ * 0.98 < 0.05 ? 0.05 : scale_ * 0.98;
-				imagepos_.x *= 0.98;
-				imagepos_.y *= 0.98;
-			}
-			if (GetKeyState('E') < 0) {
-				scale_ = scale_ * 1.02 > 10 ? 10 : scale_ * 1.02;
-				imagepos_.x *= 1.02;
-				imagepos_.y *= 1.02;
-			}
-		}
-		// Crtl + XXX
-		else {
 			if (GetKeyState('W') < 0) {
 				imagepos_.y -= 20;
 			}
@@ -84,6 +55,49 @@ void Direct2DWindow::OnKeyboard() {
 			if (GetKeyState('D') < 0) {
 				imagepos_.x += 20;
 			}
+			if (GetKeyState('Q') < 0) {
+				scale_ = scale_ * 0.98 < 0.05 ? 0.05 : scale_ * 0.98;
+				// 中央に寄せる
+				if (scale_ <= 0.051) {
+					imagepos_.x *= 0.9;
+					imagepos_.y *= 0.9;
+				}
+			}
+			if (GetKeyState('E') < 0) {
+				scale_ = scale_ * 1.02 > 10 ? 10 : scale_ * 1.02;
+				//imagepos_.x *= 1.02;
+				//imagepos_.y *= 1.02;
+			}
+		}
+		// Crtl + XXX
+		else {
+			if (GetKeyState('W') < 0) {
+				GetWindowRect(window, &rect);
+				const int aftertop = rect.top - 20 < 0 ? 0 : rect.top - 20;
+				const int afterleft = rect.left;
+				SetWindowPos(window, nullptr, afterleft, aftertop, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
+			}
+			if (GetKeyState('A') < 0) {
+				GetWindowRect(window, &rect);
+				const int aftertop = rect.top;
+				const int afterleft = rect.left - 20 < 0 ? 0 : rect.left - 20;
+				SetWindowPos(window, nullptr, afterleft, aftertop, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
+			}
+			if (GetKeyState('S') < 0) {
+				GetWindowRect(window, &rect);
+				const int height = rect.bottom - rect.top;
+				const int aftertop = rect.bottom >= GetSystemMetrics(SM_CYSCREEN) ? GetSystemMetrics(SM_CYSCREEN) - height: rect.top+20;
+				const int afterleft = rect.left;
+				SetWindowPos(window, nullptr, afterleft, aftertop, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
+			}
+			if (GetKeyState('D') < 0) {
+				GetWindowRect(window, &rect);
+				const int width = rect.right - rect.left;
+				const int aftertop = rect.top;
+				const int afterleft = rect.right >= GetSystemMetrics(SM_CXSCREEN) ? GetSystemMetrics(SM_CXSCREEN) - width: rect.left+20;
+				SetWindowPos(window, nullptr, afterleft, aftertop, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
+			}
+
 			if (GetKeyState('Q') < 0) {
 				rot_ -= 3;
 				const auto x = imagepos_.x * std::cos(-3 * std::numbers::pi / 180)
@@ -104,6 +118,53 @@ void Direct2DWindow::OnKeyboard() {
 			}
 
 		}
+		if (GetKeyState(VK_UP) < 0) {
+			GetWindowRect(window, &rect);
+			RECT afterRect = {
+				rect.left - 10,
+				rect.top - 10,
+				rect.right + 10,
+				rect.bottom + 10
+			};
+			const int width = afterRect.right - afterRect.left;
+			const int height = afterRect.bottom - afterRect.top;
+
+			afterRect = {
+				width >= GetSystemMetrics(SM_CXSCREEN) ? rect.left : afterRect.left,
+				height >= GetSystemMetrics(SM_CYSCREEN) ? rect.top : afterRect.top,
+				width >= GetSystemMetrics(SM_CXSCREEN) ? rect.right : afterRect.right,
+				height >= GetSystemMetrics(SM_CYSCREEN) ? rect.bottom : afterRect.bottom
+			};
+
+			const int diffwidth = (afterRect.right - afterRect.left) - (rect.right - rect.left);
+			const int diffheight = (afterRect.bottom - afterRect.top) - (rect.bottom - rect.top);
+
+
+
+			SetWindowPos(window, nullptr,
+				afterRect.left,afterRect.top, afterRect.right - afterRect.left, afterRect.bottom - afterRect.top,SWP_NOZORDER);
+		}
+		if (GetKeyState(VK_DOWN) < 0) {
+			GetWindowRect(window, &rect);
+			RECT afterRect = {
+				rect.left + 10,
+				rect.top + 10,
+				rect.right - 10,
+				rect.bottom - 10
+			};
+			const int width = afterRect.right - afterRect.left;
+			const int height = afterRect.bottom - afterRect.top;
+
+			afterRect = {
+				width <= 100 ? rect.left : afterRect.left,
+				height <= 100 ? rect.top : afterRect.top,
+				width <= 100 ? rect.right : afterRect.right,
+				height <= 100 ? rect.bottom : afterRect.bottom
+			};
+
+			SetWindowPos(window, nullptr,
+				afterRect.left, afterRect.top, afterRect.right - afterRect.left, afterRect.bottom - afterRect.top, SWP_NOZORDER);
+		}
 		if (GetKeyState(VK_LEFT) < 0) {
 			alpha_ = alpha_ - 0.01 < 0.2 ? 0.2 : alpha_ - 0.01;
 		}
@@ -112,10 +173,19 @@ void Direct2DWindow::OnKeyboard() {
 		}
 		if (GetAsyncKeyState('B') & 0x1) {
 			bgcolor_++;
-			if (bgcolor_ > 1) bgcolor_ = -1;
+			if (bgcolor_ > 5) bgcolor_ = 0;
 		}
 		if (GetAsyncKeyState('L') & 0x1) {
 			hiquarity_ = !hiquarity_;
+		}
+		if (GetAsyncKeyState('T') & 0x1) {
+			topmost_ = !topmost_;
+			if (topmost_ == true) {
+				SetWindowPos(window, HWND_TOPMOST, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE);
+			}
+			else {
+				SetWindowPos(window, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE);
+			}
 		}
 		if (GetAsyncKeyState('R') & 0x1) {
 
@@ -146,8 +216,8 @@ void Direct2DWindow::OnMouse(const LPARAM lParam, const int wheel) {
 			SendMessage(window, WM_NCLBUTTONDOWN, HTCAPTION, 0);
 		}
 		if (GetKeyState(VK_RBUTTON) < 0) {
-			scale_ = scale_ * (nowdist - prevdist) > 10 ? 10 : 
-				scale_ * (nowdist - prevdist) <0.05 ? 0.05: scale_ * (nowdist - prevdist);
+			scale_ = scale_ * (nowdist - prevdist) > 10 ? 10 :
+				scale_ * (nowdist - prevdist) < 0.05 ? 0.05 : scale_ * (nowdist - prevdist);
 		}
 		if (GetKeyState(VK_MBUTTON) < 0) {
 			imagepos_ = { 0,0 };
@@ -158,8 +228,6 @@ void Direct2DWindow::OnMouse(const LPARAM lParam, const int wheel) {
 		else {
 			presscursor = { -1,-1 };
 		}
-
-		scale_ = 1 + 100*wheel;
 	}
 }
 
@@ -167,17 +235,7 @@ void Direct2DWindow::OnRender() {
 	dc->BeginDraw();
 	dc->Clear();
 	ComPtr<ID2D1SolidColorBrush> brush;
-	switch (bgcolor_) {
-	case -1:
-		HR(dc->CreateSolidColorBrush(D2D1::ColorF(0.0f, 0.0f, 0.0f, 0.0f), brush.GetAddressOf()));
-		break;
-	case 0:
-		HR(dc->CreateSolidColorBrush(D2D1::ColorF(0.0f, 0.0f, 0.0f, 0.50f), brush.GetAddressOf()));
-		break;
-	case 1:
-		HR(dc->CreateSolidColorBrush(D2D1::ColorF(1.0f, 1.0f, 1.0f, 0.50f), brush.GetAddressOf()));
-		break;
-	}
+	HR(dc->CreateSolidColorBrush(D2D1::ColorF(std::floor(bgcolor_ / 3), std::floor(bgcolor_ / 3), std::floor(bgcolor_ / 3), 0.5f * (bgcolor_ % 3)), brush.GetAddressOf()));
 	dc->SetTransform(D2D1::Matrix3x2F::Identity());
 	dc->FillRectangle({ 0,0,dc->GetSize().width,dc->GetSize().height }, brush.Get());
 	img_.Show(dc.Get(), imagepos_, scale_, rot_, alpha_, hiquarity_);
@@ -215,7 +273,7 @@ void Direct2DWindow::OnResize(UINT width, UINT height)
 
 
 LRESULT CALLBACK Direct2DWindow::WindowProcInstance(HWND window, UINT message, WPARAM wparam, LPARAM lparam) {
-	
+
 	switch (message) {
 	case WM_DESTROY:
 		PostQuitMessage(0);
@@ -227,15 +285,15 @@ LRESULT CALLBACK Direct2DWindow::WindowProcInstance(HWND window, UINT message, W
 		OnResize(width, height);
 	}
 	break;
+	case WM_MOUSEHWHEEL:
+	{
+		scale_ += GET_WHEEL_DELTA_WPARAM(wparam);
+	}
+	break;
 	case WM_LBUTTONDOWN:
 	case WM_RBUTTONDOWN:
 	case WM_MBUTTONDOWN:
 		OnMouse(lparam);
-		break;
-	case WM_MOUSEHWHEEL:
-		imagepos_.x += GET_WHEEL_DELTA_WPARAM(wparam);
-		
-		//OnMouse(lparam, GET_WHEEL_DELTA_WPARAM(wparam));
 		break;
 	default:
 		return DefWindowProc(window, message, wparam, lparam);
@@ -349,7 +407,7 @@ void Direct2DWindow::setupDirect2D() {
 	D2D1_BITMAP_PROPERTIES1 properties = {};
 	properties.pixelFormat.alphaMode = D2D1_ALPHA_MODE_PREMULTIPLIED;
 	properties.pixelFormat.format = DXGI_FORMAT_B8G8R8A8_UNORM;
-	properties.bitmapOptions = D2D1_BITMAP_OPTIONS_TARGET | 
+	properties.bitmapOptions = D2D1_BITMAP_OPTIONS_TARGET |
 		D2D1_BITMAP_OPTIONS_CANNOT_DRAW;
 
 	ComPtr<ID2D1Bitmap1> bitmap;

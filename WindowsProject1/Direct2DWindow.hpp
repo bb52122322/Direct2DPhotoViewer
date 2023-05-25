@@ -31,6 +31,7 @@ private:
 	float alpha_ = 1;
 	int bgcolor_ = 0;
 	bool hiquarity_ = true;
+	bool topmost_ = true;
 	D2D1_POINT_2F presscursor = { -1,-1 };
 
 

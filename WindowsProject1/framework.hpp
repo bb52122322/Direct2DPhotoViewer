@@ -3,10 +3,14 @@
 #ifndef UNICODE
 #define UNICODE
 #endif
+#define NOMINMAX
 #include <windows.h>
 #include <windowsx.h>
 #include <iostream>
 #include <numbers>
+#include <algorithm>
+#include <cmath>
+#include <format>
 #pragma comment(lib, "user32.lib")
 
 #include <wrl.h>
