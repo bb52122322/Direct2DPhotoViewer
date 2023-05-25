@@ -1,6 +1,6 @@
 #include "Image.hpp"
 
-Image::Image(const std::wstring filename = L"") {
+Image::Image(const std::wstring filename) {
 	// Create WIC factory
 	HR(CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&wicFactory_)));
 	if (filename != L"") { Load(filename); }
@@ -8,9 +8,9 @@ Image::Image(const std::wstring filename = L"") {
 }
 
 HRESULT Image::Load(const std::wstring filename) {
-	// Create decoder
-	HR(wicFactory_->CreateDecoderFromFilename(filename.c_str(), nullptr, GENERIC_READ, WICDecodeMetadataCacheOnDemand, &decoder_));
-
+	HRESULT hr = S_OK;// Create decoder
+	hr = wicFactory_->CreateDecoderFromFilename(filename.c_str(), nullptr, GENERIC_READ, WICDecodeMetadataCacheOnDemand, &decoder_);
+	if (FAILED(hr)) return S_FALSE;
 	// Get the first frame
 	HR(decoder_->GetFrame(0, &frame_));
 
@@ -30,10 +30,12 @@ void Image::Show(ID2D1DeviceContext* const deviceContext,
 	const float rot,
 	const float opacity,
 	const bool hiquarity) {
+
+	if (decoder_ == nullptr) return;
+	
 	// Create a Direct2D bitmap from the WIC bitmap.
 	ComPtr<ID2D1Bitmap1> bitmap;
-	HR(deviceContext->CreateBitmapFromWicBitmap(converter_.Get(), nullptr, &bitmap));
-
+	HRESULT hr = deviceContext->CreateBitmapFromWicBitmap(converter_.Get(), nullptr, &bitmap);
 	float centerX = bitmap->GetSize().width / 2.0f;
 	float centerY = bitmap->GetSize().height / 2.0f;
 

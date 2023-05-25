@@ -24,7 +24,7 @@ private:
 	ComPtr<IDCompositionVisual> visual;
 	
 	Image img_;
-
+	std::wstring filename_;
 	D2D1_POINT_2F imagepos_ = { 0,0 };
 	float scale_ = 1;
 	float rot_ = 0;

@@ -3,7 +3,7 @@
 
 class Image {
 public:
-	Image(const std::wstring filename);
+	Image(const std::wstring filename = L"");
 	HRESULT Load(const std::wstring filename);
 	void Show(ID2D1DeviceContext* const deviceContext,
 		const D2D1_POINT_2F pos = { 0,0 },

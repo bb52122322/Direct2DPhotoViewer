@@ -6,12 +6,14 @@
 #define NOMINMAX
 #include <windows.h>
 #include <windowsx.h>
+#include <shellapi.h>
 #include <iostream>
 #include <numbers>
 #include <algorithm>
 #include <cmath>
 #include <format>
 #pragma comment(lib, "user32.lib")
+#pragma comment(lib, "shell32")
 
 #include <wrl.h>
 using namespace Microsoft::WRL;
@@ -22,6 +24,9 @@ using namespace Microsoft::WRL;
 #include <dcomp.h>
 #include <tchar.h>
 #include <wincodec.h>
+#include <dwrite.h>
+
+#pragma comment(lib, "dwrite")
 #pragma comment(lib, "dxgi")
 #pragma comment(lib, "d3d11")
 #pragma comment(lib, "d2d1")

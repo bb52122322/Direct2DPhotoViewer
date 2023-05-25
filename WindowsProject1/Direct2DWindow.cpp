@@ -3,16 +3,21 @@
 
 Direct2DWindow::Direct2DWindow(HINSTANCE module) :
 	module(module),
-	img_(L"./PNG_transparency_demonstration_1.png") {
+	img_(Image::Image()) {
 	Direct2DWindow::InitInstance();
 	Direct2DWindow::setupDirect2D();
 
-	//RECT rect = {};
-	//GetClientRect(window, &rect);
-	//const float width = rect.right - rect.left;
-	//const float height = rect.bottom - rect.top;
+	int argc = 0;
+	LPWSTR* argv = ::CommandLineToArgvW(GetCommandLine(), &argc);
+	if (argv == nullptr) {
+		OutputDebugString(L"FAILED!!!");
+	}
+	else if (argc > 1) { 
+		filename_ = std::format(L"{}", argv[1]).c_str();
+		img_.Load(filename_);
 
-	//imagepos_ = { width / 2,height / 2 };
+	}
+	LocalFree(argv);
 }
 
 
@@ -28,7 +33,6 @@ void Direct2DWindow::run() {
 			DispatchMessage(&message);
 		}
 		OnKeyboard();
-		
 		OnRender();
 
 	}
@@ -57,16 +61,15 @@ void Direct2DWindow::OnKeyboard() {
 			}
 			if (GetKeyState('Q') < 0) {
 				scale_ = scale_ * 0.98 < 0.05 ? 0.05 : scale_ * 0.98;
-				// 中央に寄せる
-				if (scale_ <= 0.051) {
-					imagepos_.x *= 0.9;
-					imagepos_.y *= 0.9;
-				}
+					imagepos_.x *= 0.98;
+					imagepos_.y *= 0.98;
 			}
 			if (GetKeyState('E') < 0) {
 				scale_ = scale_ * 1.02 > 10 ? 10 : scale_ * 1.02;
-				//imagepos_.x *= 1.02;
-				//imagepos_.y *= 1.02;
+				if (scale_ < 9.99) {
+					imagepos_.x *= 1.02;
+					imagepos_.y *= 1.02;
+				}
 			}
 		}
 		// Crtl + XXX
@@ -187,6 +190,10 @@ void Direct2DWindow::OnKeyboard() {
 				SetWindowPos(window, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE);
 			}
 		}
+		if (GetAsyncKeyState('N') & 0x1) {
+			ShellExecute(window, L"open", LR"("C:\Users\volat\OneDrive\Desktop\prog\cpp\Direct2DPhotoViewer\x64\Debug\WindowsProject1.exe")",
+				filename_.c_str(), nullptr, SW_SHOW);
+		}
 		if (GetAsyncKeyState('R') & 0x1) {
 
 			imagepos_ = { 0,0 };
@@ -278,16 +285,16 @@ LRESULT CALLBACK Direct2DWindow::WindowProcInstance(HWND window, UINT message, W
 	case WM_DESTROY:
 		PostQuitMessage(0);
 		break;
+	case WM_MOUSEHWHEEL:
+	{
+		scale_ += 0.01*GET_WHEEL_DELTA_WPARAM(wparam);
+	}
+	break;
 	case WM_SIZE:
 	{
 		UINT width = LOWORD(lparam);
 		UINT height = HIWORD(lparam);
 		OnResize(width, height);
-	}
-	break;
-	case WM_MOUSEHWHEEL:
-	{
-		scale_ += GET_WHEEL_DELTA_WPARAM(wparam);
 	}
 	break;
 	case WM_LBUTTONDOWN:
@@ -431,33 +438,4 @@ void Direct2DWindow::setupDirect2D() {
 	HR(target->SetRoot(visual.Get()));
 
 }
-
-
-//void Direct2DWindow::OnRenderImage(const wchar_t* filename) {
-//	// Create WIC factory
-//	ComPtr<IWICImagingFactory> wicFactory;
-//	HR(CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&wicFactory)));
-//
-//	// Create decoder
-//	ComPtr<IWICBitmapDecoder> decoder;
-//	HR(wicFactory->CreateDecoderFromFilename(filename, nullptr, GENERIC_READ, WICDecodeMetadataCacheOnDemand, &decoder));
-//
-//	// Get the first frame
-//	ComPtr<IWICBitmapFrameDecode> frame;
-//	HR(decoder->GetFrame(0, &frame));
-//
-//	// Create format converter
-//	ComPtr<IWICFormatConverter> converter;
-//	HR(wicFactory->CreateFormatConverter(&converter));
-//
-//	// Initialize the format converter
-//	HR(converter->Initialize(frame.Get(), GUID_WICPixelFormat32bppPBGRA, WICBitmapDitherTypeNone, nullptr, 0.0, WICBitmapPaletteTypeCustom));
-//
-//	// Create a Direct2D bitmap from the WIC bitmap.
-//	ComPtr<ID2D1Bitmap1> bitmap;
-//	HR(dc->CreateBitmapFromWicBitmap(converter.Get(), nullptr, &bitmap));
-//
-//	// Draw the bitmap
-//	dc->DrawBitmap(bitmap.Get(),D2D1_RECT_F(imagepos.x, imagepos.y, imagepos.x+100, imagepos.y+100));
-//}
 
