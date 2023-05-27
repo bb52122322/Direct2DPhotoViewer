@@ -382,6 +382,7 @@ void Direct2DWindow::OnMouse(const LPARAM lParam, const int wheel) {
 				prevbuttondown_ == true;
 			}
 			if (GetKeyState(VK_SHIFT) & 0x8000) {
+
 				imagepos_.x += xPos - prevcursorpos_.x;
 				imagepos_.y += yPos - prevcursorpos_.y;
 			}
@@ -396,8 +397,17 @@ void Direct2DWindow::OnMouse(const LPARAM lParam, const int wheel) {
 				prevpresspos_ = { xPos, yPos };
 				prevbuttondown_ == true;
 			}
-			rot_ += 180 / std::numbers::pi *(2* std::numbers::pi + std::arg(-std::complex(xPos - dc->GetSize().width/2.0, yPos - dc->GetSize().height / 2.0)) 
+			
+			const auto addrot = 180 / std::numbers::pi * (2 * std::numbers::pi + std::arg(-std::complex(xPos - dc->GetSize().width / 2.0, yPos - dc->GetSize().height / 2.0))
 				- std::arg(-std::complex(prevcursorpos_.x - dc->GetSize().width / 2.0, prevcursorpos_.y - dc->GetSize().height / 2.0)));
+			rot_ += addrot;
+			const auto x = imagepos_.x * std::cos(addrot * std::numbers::pi / 180)
+				- imagepos_.y * std::sin(addrot * std::numbers::pi / 180);
+			const auto y = imagepos_.x * std::sin(addrot * std::numbers::pi / 180)
+				+ imagepos_.y * std::cos(addrot * std::numbers::pi / 180);
+			imagepos_.x = x;
+			imagepos_.y = y;
+
 		}
 		else if (GetKeyState(VK_MBUTTON) < 0) {
 			imagepos_ = { 0,0 };
@@ -459,10 +469,18 @@ LRESULT CALLBACK Direct2DWindow::WindowProcInstance(HWND window, UINT message, W
 	case WM_DESTROY:
 		PostQuitMessage(0);
 		break;
-	case WM_MOUSEHWHEEL:
+	case WM_MOUSEWHEEL:
 	{
-		scale_.width += 0.01 * GET_WHEEL_DELTA_WPARAM(wparam);
-		scale_.height += 0.01 * GET_WHEEL_DELTA_WPARAM(wparam);
+		scale_.width *= 1 + GET_WHEEL_DELTA_WPARAM(wparam) / 1200.0;
+		scale_.height *= 1 + GET_WHEEL_DELTA_WPARAM(wparam) / 1200.0;
+		if (std::abs(scale_.width) < 0.05) {
+			scale_.width = scale_.height = 0.05;
+			imagepos_.x *= 0.98;
+			imagepos_.y *= 0.98;
+		}
+		if (std::abs(scale_.width) > 10) {
+			scale_.width = scale_.height = 10;
+		}
 	}
 	break;
 	case WM_SIZE:
@@ -484,7 +502,8 @@ LRESULT CALLBACK Direct2DWindow::WindowProcInstance(HWND window, UINT message, W
 	return 0;
 }
 
-LRESULT CALLBACK Direct2DWindow::WindowProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+inline LRESULT CALLBACK Direct2DWindow::WindowProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+
 	Direct2DWindow* app;
 	switch (msg) {
 	case WM_CREATE:
@@ -495,6 +514,8 @@ LRESULT CALLBACK Direct2DWindow::WindowProc(HWND hWnd, UINT msg, WPARAM wParam, 
 		app = (Direct2DWindow*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
 	}
 	return app->WindowProcInstance(hWnd, msg, wParam, lParam);
+
+	return true;
 }
 
 ATOM Direct2DWindow::RegisterWindowClass()
