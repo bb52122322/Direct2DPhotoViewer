@@ -26,13 +26,17 @@ private:
 	Image img_;
 	std::wstring filename_;
 	D2D1_POINT_2F imagepos_ = { 0,0 };
-	float scale_ = 1;
+	D2D1_SIZE_F scale_ = { 1,1 };
 	float rot_ = 0;
 	float alpha_ = 1;
-	int bgcolor_ = 0;
+	int bgcolor_ = 2;
 	bool hiquarity_ = true;
-	bool topmost_ = true;
-	D2D1_POINT_2F presscursor = { -1,-1 };
+	bool topmost_ = false;
+	bool enableEvent = true;
+	// mouse events
+	D2D1_POINT_2L prevpresspos_;
+	D2D1_POINT_2L prevcursorpos_;
+	bool prevbuttondown_ = false;
 
 
 	void OnRender();

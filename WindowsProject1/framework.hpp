@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <cmath>
 #include <format>
+#include <complex>
 #pragma comment(lib, "user32.lib")
 #pragma comment(lib, "shell32")
 
