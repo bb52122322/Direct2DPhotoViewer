@@ -2,7 +2,7 @@
 
 Direct2DWindow::Direct2DWindow(HINSTANCE module) :
 	module(module),
-	img_(Image::Image()) {
+	image_(Image::Image()) {
 	Direct2DWindow::InitInstance();
 	Direct2DWindow::setupDirect2D();
 	wchar_t buffer[128];
@@ -12,22 +12,22 @@ Direct2DWindow::Direct2DWindow(HINSTANCE module) :
 		OutputDebugString(L"FAILED!!!");
 	}
 	else if (argc > 1) {
-		filename_ = std::format(L"{}", argv[1]).c_str();
-		img_.Load(dc.Get(), filename_);
+		filepath_ = std::format(L"{}", argv[1]).c_str();
+		image_.Load(d2dDeviceContext_.Get(), filepath_);
 		for (auto i = 2; i < argc; ++i) {
 			wchar_t applicationPath[FILENAME_MAX];
 			if (GetModuleFileName(nullptr, applicationPath, FILENAME_MAX)) {
-				ShellExecute(window, L"open", applicationPath, argv[i], nullptr, SW_SHOW);
+				ShellExecute(hWnd_, L"open", applicationPath, argv[i], nullptr, SW_SHOW);
 			}
 		}
 	}
 
 	// Adjast window size.
-		const auto scale = std::min(dc->GetSize().width * 1.0 / img_.GetSize().width,
-			dc->GetSize().height * 1.0 / img_.GetSize().height);
-		const auto width = std::min(img_.GetSize().width * scale, dc->GetSize().width * 1.0);
-		const auto height = std::min(img_.GetSize().height * scale, dc->GetSize().height * 1.0);
-		SetWindowPos(window, nullptr, 0, 0, width, height, SWP_NOZORDER | SWP_NOMOVE);
+		const auto scale = std::min(d2dDeviceContext_->GetSize().width * 1.0 / image_.GetSize().width,
+			d2dDeviceContext_->GetSize().height * 1.0 / image_.GetSize().height);
+		const auto width = std::min(image_.GetSize().width * scale, d2dDeviceContext_->GetSize().width * 1.0);
+		const auto height = std::min(image_.GetSize().height * scale, d2dDeviceContext_->GetSize().height * 1.0);
+		SetWindowPos(hWnd_, nullptr, 0, 0, width, height, SWP_NOZORDER | SWP_NOMOVE);
 		ImageResetEvent();
 	LocalFree(argv);
 }
@@ -51,8 +51,8 @@ void Direct2DWindow::run() {
 
 void Direct2DWindow::ImageResetEvent() {
 	imagepos_ = { 0,0 };
-		const auto scale = std::min(dc->GetSize().width / img_.GetSize().width,
-			dc->GetSize().height / img_.GetSize().height);
+		const auto scale = std::min(d2dDeviceContext_->GetSize().width / image_.GetSize().width,
+			d2dDeviceContext_->GetSize().height / image_.GetSize().height);
 		scale_ = { scale,scale };
 		rot_ = 0;
 
@@ -100,19 +100,19 @@ void Direct2DWindow::ImageRotateEvent(const float rot) {
 
 void Direct2DWindow::WindowMoveEvent(const D2D1_POINT_2F moveVec){
 	RECT rect;
-	GetWindowRect(window, &rect);
+	GetWindowRect(hWnd_, &rect);
 	const int aftertop = rect.top + moveVec.y < 0 ? 0 : 
-		(rect.top + moveVec.y > GetSystemMetrics(SM_CYSCREEN) - dc->GetSize().height ?
-			GetSystemMetrics(SM_CYSCREEN) - dc->GetSize().height : rect.top + moveVec.y);
+		(rect.top + moveVec.y > GetSystemMetrics(SM_CYSCREEN) - d2dDeviceContext_->GetSize().height ?
+			GetSystemMetrics(SM_CYSCREEN) - d2dDeviceContext_->GetSize().height : rect.top + moveVec.y);
 	const int afterleft = rect.left + moveVec.x < 0 ? 0 :
-		(rect.left + moveVec.x > GetSystemMetrics(SM_CXSCREEN) - dc->GetSize().width ?
-			GetSystemMetrics(SM_CXSCREEN)-dc->GetSize().width : rect.left + moveVec.x);
-	SetWindowPos(window, nullptr, afterleft, aftertop, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
+		(rect.left + moveVec.x > GetSystemMetrics(SM_CXSCREEN) - d2dDeviceContext_->GetSize().width ?
+			GetSystemMetrics(SM_CXSCREEN)-d2dDeviceContext_->GetSize().width : rect.left + moveVec.x);
+	SetWindowPos(hWnd_, nullptr, afterleft, aftertop, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
 }
 
 void Direct2DWindow::WindowSizeEvent(const D2D1_SIZE_F sizeDelta) {
 	RECT rect;
-	GetWindowRect(window, &rect);
+	GetWindowRect(hWnd_, &rect);
 	RECT afterRect = {
 		rect.left - sizeDelta.width,
 		rect.top - sizeDelta.height,
@@ -139,13 +139,13 @@ void Direct2DWindow::WindowSizeEvent(const D2D1_SIZE_F sizeDelta) {
 	const int diffwidth = (afterRect.right - afterRect.left) - (rect.right - rect.left);
 	const int diffheight = (afterRect.bottom - afterRect.top) - (rect.bottom - rect.top);
 
-	SetWindowPos(window, nullptr,
+	SetWindowPos(hWnd_, nullptr,
 		afterRect.left, afterRect.top, afterRect.right - afterRect.left, afterRect.bottom - afterRect.top, SWP_NOZORDER);
 }
 
 void Direct2DWindow::OpenFileEvent(const bool new_window) {
 	// 一時的に最上面をOFF
-	SetWindowPos(window, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE);
+	SetWindowPos(hWnd_, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE);
 
 	OPENFILENAME ofn;
 	wchar_t filepath[FILENAME_MAX] = L"";
@@ -174,22 +174,22 @@ void Direct2DWindow::OpenFileEvent(const bool new_window) {
 				wchar_t* p = ofn.lpstrFile;
 				while (*p)
 				{
-					ShellExecute(window, L"open", applicationPath, std::wstring(L"\"" + std::wstring(p) + L"\"").c_str(), nullptr, SW_SHOW);
+					ShellExecute(hWnd_, L"open", applicationPath, std::wstring(L"\"" + std::wstring(p) + L"\"").c_str(), nullptr, SW_SHOW);
 					p += lstrlen(p) + 1;
 				}
 			}
 		}
 		else {
-			img_.Load(dc.Get(), std::wstring(L"\"" + std::wstring(filepath) + L"\"").c_str());
+			image_.Load(d2dDeviceContext_.Get(), std::wstring(L"\"" + std::wstring(filepath) + L"\"").c_str());
 			ImageResetEvent();
 		}
 	}
 
 	if (topmost_ == true) {
-		SetWindowPos(window, HWND_TOPMOST, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE);
+		SetWindowPos(hWnd_, HWND_TOPMOST, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE);
 	}
 	else {
-		SetWindowPos(window, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE);
+		SetWindowPos(hWnd_, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE);
 	}
 	Sleep(1000);
 }
@@ -198,11 +198,11 @@ void Direct2DWindow::DroppedFileEvent(const std::wstring filepath) {
 	if (!(GetKeyState(VK_SHIFT) & 0x8000)) {
 		wchar_t applicationPath[256];
 		if (GetModuleFileName(nullptr, applicationPath, 256)) {
-			ShellExecute(window, L"open", applicationPath, filepath.c_str(), nullptr, SW_SHOW);
+			ShellExecute(hWnd_, L"open", applicationPath, filepath.c_str(), nullptr, SW_SHOW);
 		}
 	}
 	else {
-		img_.Load(dc.Get(), filepath);
+		image_.Load(d2dDeviceContext_.Get(), filepath);
 	}
 }
 
@@ -210,19 +210,19 @@ void Direct2DWindow::OnKeyboard() {
 	static int timer_flip = 0; // timer for QE (flip)
 	static int timer_esc = 0; // timer for ESC (quit)
 	if (GetAsyncKeyState(VK_CONTROL) & 0x8000 && GetAsyncKeyState(VK_F12) & 0x1) {
-		enableEvent = !enableEvent;
-		auto style = GetWindowLongPtr(window, GWL_EXSTYLE);
-		if (enableEvent == true) {
+		enableEvent_ = !enableEvent_;
+		auto style = GetWindowLongPtr(hWnd_, GWL_EXSTYLE);
+		if (enableEvent_ == true) {
 			style &= ~WS_EX_TRANSPARENT;
-			SetWindowLongPtr(window, GWL_EXSTYLE, style);
+			SetWindowLongPtr(hWnd_, GWL_EXSTYLE, style);
 		}
 		else {
 			style |= WS_EX_TRANSPARENT;
-			SetWindowLongPtr(window, GWL_EXSTYLE, style);
+			SetWindowLongPtr(hWnd_, GWL_EXSTYLE, style);
 		}
 		MessageBeep(MB_ICONINFORMATION);
 	}
-	if (GetForegroundWindow() == window) {
+	if (GetForegroundWindow() == hWnd_) {
 		RECT rect;
 		if (GetKeyState(VK_ESCAPE) & 0x8000) {
 			if (timer_esc > 15) {
@@ -288,18 +288,18 @@ void Direct2DWindow::OnKeyboard() {
 				topmost_ = !topmost_;
 				
 				if (topmost_ == true) {
-					SetWindowPos(window, HWND_TOPMOST, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE);
+					SetWindowPos(hWnd_, HWND_TOPMOST, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE);
 					PlaySound(L"C:/Windows/Media/Speech on.wav", nullptr, SND_FILENAME | SND_ASYNC);
 				}
 				else {
-					SetWindowPos(window, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE);
+					SetWindowPos(hWnd_, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE);
 					PlaySound(L"C:/Windows/Media/Speech off.wav", nullptr, SND_FILENAME | SND_ASYNC);
 				}
 			}
 			if (GetAsyncKeyState('N') & 0x1) {
 				wchar_t applicationPath[256];
 				if (GetModuleFileName(nullptr, applicationPath, 256)) {
-					ShellExecute(window, L"open", applicationPath, filename_.c_str(), nullptr, SW_SHOW);
+					ShellExecute(hWnd_, L"open", applicationPath, filepath_.c_str(), nullptr, SW_SHOW);
 				}
 			}
 			if (GetAsyncKeyState('F') & 0x1) {
@@ -327,11 +327,11 @@ void Direct2DWindow::OnKeyboard() {
 			}
 			if (GetKeyState('Q') & 0x8000) {
 				alpha_ = alpha_ - 0.01 < 0.2 ? 0.2 : alpha_ - 0.01;
-				SetLayeredWindowAttributes(window, 0, 255 * alpha_, LWA_ALPHA);
+				SetLayeredWindowAttributes(hWnd_, 0, 255 * alpha_, LWA_ALPHA);
 			}
 			if (GetKeyState('E') & 0x8000) {
 				alpha_ = alpha_ + 0.01 > 1.00 ? 1 : alpha_ + 0.01;
-				SetLayeredWindowAttributes(window, 0, 255 * alpha_, LWA_ALPHA);
+				SetLayeredWindowAttributes(hWnd_, 0, 255 * alpha_, LWA_ALPHA);
 			}
 
 			if (GetKeyState(VK_UP) & 0x8000) {
@@ -356,21 +356,21 @@ void Direct2DWindow::OnKeyboard() {
 
 void Direct2DWindow::OnMouse(const LPARAM lParam, const int wheel) {
 
-	if (GetForegroundWindow() == window) {
+	if (GetForegroundWindow() == hWnd_) {
 		int xPos = GET_X_LPARAM(lParam);
 		int yPos = GET_Y_LPARAM(lParam);
 
 		if (GetKeyState(VK_LBUTTON) & 0x8000) {
 			if (GetKeyState(VK_CONTROL) & 0x8000) {
-				const auto addrot = 180 / std::numbers::pi * (2 * std::numbers::pi + std::arg(-std::complex(xPos - dc->GetSize().width / 2.0, yPos - dc->GetSize().height / 2.0))
-					- std::arg(-std::complex(prevcursorpos_.x - dc->GetSize().width / 2.0, prevcursorpos_.y - dc->GetSize().height / 2.0)));
+				const auto addrot = 180 / std::numbers::pi * (2 * std::numbers::pi + std::arg(-std::complex(xPos - d2dDeviceContext_->GetSize().width / 2.0, yPos - d2dDeviceContext_->GetSize().height / 2.0))
+					- std::arg(-std::complex(prevcursorpos_.x - d2dDeviceContext_->GetSize().width / 2.0, prevcursorpos_.y - d2dDeviceContext_->GetSize().height / 2.0)));
 				ImageRotateEvent(addrot);
 
 			}
 			else {
 				// Release the mouse capture and start moving the window
 				ReleaseCapture();
-				SendMessage(window, WM_NCLBUTTONDOWN, HTCAPTION, 0);
+				SendMessage(hWnd_, WM_NCLBUTTONDOWN, HTCAPTION, 0);
 			}
 		}
 		if (GetKeyState(VK_RBUTTON) < 0) {
@@ -389,31 +389,31 @@ void Direct2DWindow::OnMouse(const LPARAM lParam, const int wheel) {
 }
 
 void Direct2DWindow::OnRender() {
-	dc->BeginDraw();
-	dc->Clear();
+	d2dDeviceContext_->BeginDraw();
+	d2dDeviceContext_->Clear();
 	ComPtr<ID2D1SolidColorBrush> brush;
-	HR(dc->CreateSolidColorBrush(D2D1::ColorF(std::floor(bgcolor_ / 5), std::floor(bgcolor_ / 5), std::floor(bgcolor_ / 5), 0.25f * (bgcolor_ % 5)), brush.GetAddressOf()));
-	dc->SetTransform(D2D1::Matrix3x2F::Identity());
-	dc->FillRectangle({ 0,0,dc->GetSize().width,dc->GetSize().height }, brush.Get());
-	img_.Show(imagepos_, scale_, rot_, 1, hiquarity_);
-	HR(dc->EndDraw());
-	HR(swapChain->Present(1, 0));
-	HR(dcompDevice->Commit());
+	HR(d2dDeviceContext_->CreateSolidColorBrush(D2D1::ColorF(std::floor(bgcolor_ / 5), std::floor(bgcolor_ / 5), std::floor(bgcolor_ / 5), 0.25f * (bgcolor_ % 5)), brush.GetAddressOf()));
+	d2dDeviceContext_->SetTransform(D2D1::Matrix3x2F::Identity());
+	d2dDeviceContext_->FillRectangle({ 0,0,d2dDeviceContext_->GetSize().width,d2dDeviceContext_->GetSize().height }, brush.Get());
+	image_.Show(imagepos_, scale_, rot_, 1, hiquarity_);
+	HR(d2dDeviceContext_->EndDraw());
+	HR(dxgiSwapChain_->Present(1, 0));
+	HR(dCompositionDevice_->Commit());
 }
 
 void Direct2DWindow::OnResize(UINT width, UINT height)
 {
-	if (dc && swapChain)
+	if (d2dDeviceContext_ && dxgiSwapChain_)
 	{
-		dc->SetTarget(nullptr);  // Clear the existing target in the device context
+		d2dDeviceContext_->SetTarget(nullptr);  // Clear the existing dCompositionTarget_ in the device context
 
 		// Resize the swap chain
 		DXGI_SWAP_CHAIN_DESC1 desc = {};
-		swapChain->GetDesc1(&desc);
-		HRESULT hr = swapChain->ResizeBuffers(desc.BufferCount, width, height, desc.Format, desc.Flags);
+		dxgiSwapChain_->GetDesc1(&desc);
+		HRESULT hr = dxgiSwapChain_->ResizeBuffers(desc.BufferCount, width, height, desc.Format, desc.Flags);
 		// Retrieve the back buffer from the swap chain
 		ComPtr<IDXGISurface2> surface;
-		HR(swapChain->GetBuffer(0, IID_PPV_ARGS(&surface)));
+		HR(dxgiSwapChain_->GetBuffer(0, IID_PPV_ARGS(&surface)));
 		// Create a bitmap linked to the swap chain surface
 		D2D1_BITMAP_PROPERTIES1 properties = {};
 		properties.pixelFormat.alphaMode = D2D1_ALPHA_MODE_PREMULTIPLIED;
@@ -422,14 +422,14 @@ void Direct2DWindow::OnResize(UINT width, UINT height)
 			D2D1_BITMAP_OPTIONS_CANNOT_DRAW;
 
 		ComPtr<ID2D1Bitmap1> bitmap;
-		HR(dc->CreateBitmapFromDxgiSurface(surface.Get(), &properties, &bitmap));
-		// Set the bitmap as the new target in the device context
-		dc->SetTarget(bitmap.Get());
+		HR(d2dDeviceContext_->CreateBitmapFromDxgiSurface(surface.Get(), &properties, &bitmap));
+		// Set the bitmap as the new dCompositionTarget_ in the device context
+		d2dDeviceContext_->SetTarget(bitmap.Get());
 	}
 }
 
 
-LRESULT CALLBACK Direct2DWindow::WindowProcInstance(HWND window, UINT message, WPARAM wparam, LPARAM lparam) {
+LRESULT CALLBACK Direct2DWindow::WindowProcInstance(HWND hWnd, UINT message, WPARAM wparam, LPARAM lparam) {
 
 	switch (message) {
 	case WM_DESTROY:
@@ -439,9 +439,9 @@ LRESULT CALLBACK Direct2DWindow::WindowProcInstance(HWND window, UINT message, W
 	{
 		POINT pt;
 		GetCursorPos(&pt); // マウスカーソルのスクリーン座標を取得
-		ScreenToClient(window, & pt);
+		ScreenToClient(hWnd, & pt);
 		ImageScaleEvent(1 + GET_WHEEL_DELTA_WPARAM(wparam) / 120.0 * ::SCALE_SPEED_WHEEL,
-			{pt.x - dc->GetSize().width / 2.0f ,pt.y - dc->GetSize().height / 2.0f });
+			{pt.x - d2dDeviceContext_->GetSize().width / 2.0f ,pt.y - d2dDeviceContext_->GetSize().height / 2.0f });
 	}
 	break;
 	case WM_SIZE:
@@ -475,7 +475,7 @@ LRESULT CALLBACK Direct2DWindow::WindowProcInstance(HWND window, UINT message, W
 		OnMouse(lparam);
 		break;
 	default:
-		return DefWindowProc(window, message, wparam, lparam);
+		return DefWindowProc(hWnd, message, wparam, lparam);
 	}
 	return 0;
 }
@@ -516,17 +516,17 @@ ATOM Direct2DWindow::RegisterWindowClass()
 void Direct2DWindow::InitInstance() {
 	RegisterWindowClass();
 
-	window = CreateWindowEx(WS_EX_LAYERED | WS_EX_NOREDIRECTIONBITMAP,
+	hWnd_ = CreateWindowEx(WS_EX_LAYERED | WS_EX_NOREDIRECTIONBITMAP,
 		L"D2DWindow", L"Sample",
 		WS_OVERLAPPEDWINDOW | WS_VISIBLE,
 		CW_USEDEFAULT, CW_USEDEFAULT,
 		CW_USEDEFAULT, CW_USEDEFAULT,
 		nullptr, nullptr, module, this);
 
-	LONG lStyle = GetWindowLong(window, GWL_STYLE);
+	LONG lStyle = GetWindowLong(hWnd_, GWL_STYLE);
 	lStyle &= ~(WS_CAPTION | WS_BORDER);
-	SetWindowLong(window, GWL_STYLE, lStyle);
-	DragAcceptFiles(window, TRUE); // accept dropping files
+	SetWindowLong(hWnd_, GWL_STYLE, lStyle);
+	DragAcceptFiles(hWnd_, TRUE); // accept dropping files
 
 }
 
@@ -537,16 +537,16 @@ void Direct2DWindow::setupDirect2D() {
 		D3D11_CREATE_DEVICE_BGRA_SUPPORT,
 		nullptr, 0, // Highest available feature level
 		D3D11_SDK_VERSION,
-		&direct3dDevice,
+		&d3dDevice_,
 		nullptr,    // Actual feature level
 		nullptr));  // Device context
 
-	HR(direct3dDevice.As(&dxgiDevice));
+	HR(d3dDevice_.As(&dxgiDevice_));
 
 	HR(CreateDXGIFactory2(
 		DXGI_CREATE_FACTORY_DEBUG,
-		__uuidof(dxFactory),
-		reinterpret_cast<void**>(dxFactory.GetAddressOf())));
+		__uuidof(dxgiFactory_),
+		reinterpret_cast<void**>(dxgiFactory_.GetAddressOf())));
 
 	DXGI_SWAP_CHAIN_DESC1 description = {};
 
@@ -558,30 +558,30 @@ void Direct2DWindow::setupDirect2D() {
 	description.AlphaMode = DXGI_ALPHA_MODE_PREMULTIPLIED;
 
 	RECT rect = {};
-	GetClientRect(window, &rect);
+	GetClientRect(hWnd_, &rect);
 	description.Width = rect.right - rect.left;
 	description.Height = rect.bottom - rect.top;
 
-	HR(dxFactory->CreateSwapChainForComposition(dxgiDevice.Get(),
+	HR(dxgiFactory_->CreateSwapChainForComposition(dxgiDevice_.Get(),
 		&description,
 		nullptr, // Don’t restrict
-		swapChain.GetAddressOf()));
+		dxgiSwapChain_.GetAddressOf()));
 
 	// Create a single-threaded Direct2D factory with debugging information
 	D2D1_FACTORY_OPTIONS const options = { D2D1_DEBUG_LEVEL_INFORMATION };
 	HR(D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED,
 		options,
-		d2Factory.GetAddressOf()));
+		d2Factory_.GetAddressOf()));
 	// Create the Direct2D device that links back to the Direct3D device
-	HR(d2Factory->CreateDevice(dxgiDevice.Get(),
-		d2Device.GetAddressOf()));
-	// Create the Direct2D device context that is the actual render target
+	HR(d2Factory_->CreateDevice(dxgiDevice_.Get(),
+		d2dDevice_.GetAddressOf()));
+	// Create the Direct2D device context that is the actual render dCompositionTarget_
 	// and exposes drawing commands
-	HR(d2Device->CreateDeviceContext(D2D1_DEVICE_CONTEXT_OPTIONS_NONE,
-		dc.GetAddressOf()));
+	HR(d2dDevice_->CreateDeviceContext(D2D1_DEVICE_CONTEXT_OPTIONS_NONE,
+		d2dDeviceContext_.GetAddressOf()));
 	// Retrieve the swap chain's back buffer
 	ComPtr<IDXGISurface2> surface;
-	HR(swapChain->GetBuffer(
+	HR(dxgiSwapChain_->GetBuffer(
 		0, // index
 		__uuidof(surface),
 		reinterpret_cast<void**>(surface.GetAddressOf())));
@@ -593,23 +593,23 @@ void Direct2DWindow::setupDirect2D() {
 		D2D1_BITMAP_OPTIONS_CANNOT_DRAW;
 
 	ComPtr<ID2D1Bitmap1> bitmap;
-	HR(dc->CreateBitmapFromDxgiSurface(surface.Get(),
+	HR(d2dDeviceContext_->CreateBitmapFromDxgiSurface(surface.Get(),
 		properties,
 		bitmap.GetAddressOf()));
 	// Point the device context to the bitmap for rendering
-	dc->SetTarget(bitmap.Get());
+	d2dDeviceContext_->SetTarget(bitmap.Get());
 
 	HR(DCompositionCreateDevice(
-		dxgiDevice.Get(),
-		__uuidof(dcompDevice),
-		reinterpret_cast<void**>(dcompDevice.GetAddressOf())));
+		dxgiDevice_.Get(),
+		__uuidof(dCompositionDevice_),
+		reinterpret_cast<void**>(dCompositionDevice_.GetAddressOf())));
 
-	HR(dcompDevice->CreateTargetForHwnd(window,
+	HR(dCompositionDevice_->CreateTargetForHwnd(hWnd_,
 		true, // Top most
-		target.GetAddressOf()));
+		dCompositionTarget_.GetAddressOf()));
 
-	HR(dcompDevice->CreateVisual(visual.GetAddressOf()));
-	HR(visual->SetContent(swapChain.Get()));
-	HR(target->SetRoot(visual.Get()));
+	HR(dCompositionDevice_->CreateVisual(dCompositionVisual_.GetAddressOf()));
+	HR(dCompositionVisual_->SetContent(dxgiSwapChain_.Get()));
+	HR(dCompositionTarget_->SetRoot(dCompositionVisual_.Get()));
 
 }
