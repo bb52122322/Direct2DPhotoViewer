@@ -7,7 +7,7 @@ C++/WindowsAPI/Direct2Dの勉強として、操作のシンプルさを目指し
 
 Visual Studioでインストールできるライブラリ以外の使用は禁止という縛りの基で作成。
 
-![./screenshot.png](./screenshot.png)
+![](./Screenshot.png)
 
 --- 
 
@@ -73,6 +73,3 @@ Visual Studioでインストールできるライブラリ以外の使用は禁�
 ---
 ## 参考
 Microsoft Learn: https://learn.microsoft.com/ja-jp/windows/win32/Direct2D/direct2d-overview
-
-## 素材
-サンプル画像: https://en.wikipedia.org/wiki/File:PNG_transparency_demonstration_1.png
