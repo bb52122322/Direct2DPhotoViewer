@@ -15,7 +15,6 @@ Direct2DWindow::Direct2DWindow(HINSTANCE module) :
 	else if (argc > 1) {
 		filename_ = std::format(L"{}", argv[1]).c_str();
 		img_.Load(dc.Get(), filename_);
-
 	}
 	LocalFree(argv);
 }
@@ -25,7 +24,6 @@ void Direct2DWindow::run() {
 	MSG message;
 
 	while (true) {
-
 
 		while (PeekMessage(&message, 0, 0, 0, PM_REMOVE))
 		{
@@ -37,6 +35,57 @@ void Direct2DWindow::run() {
 
 	}
 }
+
+void Direct2DWindow::ImageScaleEvent(const float scale) {
+	scale_.width = scale * scale_.width;
+	scale_.height = scale * scale_.height;
+
+	auto type = scale_.width > 0 ? 1 : -1;
+	if (std::abs(scale_.width) > ::SCALE_MAX) {
+		scale_.width = (scale_.width > 0 ? 1 : -1) * ::SCALE_MAX;
+	}
+	else if (std::abs(scale_.width) < ::SCALE_MIN) {
+		scale_.width = (scale_.width > 0 ? 1 : -1) * ::SCALE_MIN;
+		imagepos_.x *= scale;
+	}
+	else {
+		imagepos_.x *= scale;
+	}
+	if (std::abs(scale_.height) > SCALE_MAX) {
+		scale_.height = (scale_.height > 0 ? 1 : -1) * ::SCALE_MAX;
+	}
+	else if (std::abs(scale_.height) < ::SCALE_MIN) {
+		scale_.height = (scale_.height > 0 ? 1 : -1) * ::SCALE_MIN;
+		imagepos_.y *= scale;
+	}
+	else {
+		imagepos_.y *= scale;
+	}
+}
+
+void Direct2DWindow::ImageRotateEvent(const float rot) {
+	rot_ += rot;
+	const auto x = imagepos_.x * std::cos(rot * std::numbers::pi / 180)
+		- imagepos_.y * std::sin(rot * std::numbers::pi / 180);
+	const auto y = imagepos_.x * std::sin(rot * std::numbers::pi / 180)
+		+ imagepos_.y * std::cos(rot * std::numbers::pi / 180);
+	imagepos_.x = x;
+	imagepos_.y = y;
+}
+
+void Direct2DWindow::WindowMoveEvent(const D2D1_POINT_2F moveVec){
+	RECT rect;
+	GetWindowRect(window, &rect);
+	const int aftertop = rect.top + moveVec.y < 0 ? 0 : 
+		(rect.top + moveVec.y > GetSystemMetrics(SM_CYSCREEN) - dc->GetSize().height ?
+			GetSystemMetrics(SM_CYSCREEN) - dc->GetSize().height : rect.top + moveVec.y);
+	const int afterleft = rect.left + moveVec.x < 0 ? 0 :
+		(rect.left + moveVec.x > GetSystemMetrics(SM_CXSCREEN) - dc->GetSize().width ?
+			GetSystemMetrics(SM_CXSCREEN)-dc->GetSize().width : rect.left + moveVec.x);
+	SetWindowPos(window, nullptr, afterleft, aftertop, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
+
+}
+
 
 void Direct2DWindow::OnKeyboard() {
 	static int timer = 0;
@@ -51,6 +100,7 @@ void Direct2DWindow::OnKeyboard() {
 			style |= WS_EX_TRANSPARENT;
 			SetWindowLongPtr(window, GWL_EXSTYLE, style);
 		}
+		MessageBeep(MB_ICONINFORMATION);
 	}
 	if (GetForegroundWindow() == window) {
 		RECT rect;
@@ -62,61 +112,17 @@ void Direct2DWindow::OnKeyboard() {
 		if (!(GetKeyState(VK_SHIFT) & 0x8000)) {
 			// rotate
 			if (GetKeyState('A') & 0x8000) {
-				rot_ -= 3;
-				const auto x = imagepos_.x * std::cos(-3 * std::numbers::pi / 180)
-					- imagepos_.y * std::sin(-3 * std::numbers::pi / 180);
-				const auto y = imagepos_.x * std::sin(-3 * std::numbers::pi / 180)
-					+ imagepos_.y * std::cos(-3 * std::numbers::pi / 180);
-				imagepos_.x = x;
-				imagepos_.y = y;
-
+				ImageRotateEvent(-3);
 			}
 			if (GetKeyState('D') & 0x8000) {
-				rot_ += 3;
-				const auto x = imagepos_.x * std::cos(3 * std::numbers::pi / 180)
-					- imagepos_.y * std::sin(3 * std::numbers::pi / 180);
-				const auto y = imagepos_.x * std::sin(3 * std::numbers::pi / 180)
-					+ imagepos_.y * std::cos(3 * std::numbers::pi / 180);
-				imagepos_.x = x;
-				imagepos_.y = y;
-
+				ImageRotateEvent(3);
 			}
 			//scale
 			if (GetKeyState('S') & 0x8000) {
-				if (scale_.width > 0) {
-					scale_.width = scale_.width * 0.98 < 0.05 ? 0.05 : scale_.width * 0.98;
-				}
-				else {
-					scale_.width = scale_.width * 0.98 > -0.05 ? -0.05 : scale_.width * 0.98;
-				}
-				if (scale_.height > 0) {
-					scale_.height = scale_.height * 0.98 < 0.05 ? 0.05 : scale_.height * 0.98;
-				}
-				else {
-					scale_.height = scale_.height * 0.98 > -0.05 ? -0.05 : scale_.height * 0.98;
-				}
-				imagepos_.x *= 0.98;
-				imagepos_.y *= 0.98;
+				ImageScaleEvent(1 / SCALE_UNIT);
 			}
 			if (GetKeyState('W') & 0x8000) {
-				if (scale_.width > 0) {
-					scale_.width = scale_.width * 1.02 > 10 ? 10 : scale_.width * 1.02;
-				}
-				else {
-					scale_.width = scale_.width * 1.02 < -10 ? -10 : scale_.width * 1.02;
-				}
-				if (scale_.height > 0) {
-					scale_.height = scale_.height * 1.02 > 10 ? 10 : scale_.height * 1.02;
-				}
-				else {
-					scale_.height = scale_.height * 1.02 < -10 ? -10 : scale_.height * 1.02;
-				}
-
-				if (std::abs(scale_.width) < 9.99) {
-					imagepos_.x *= 1.02;
-					imagepos_.y *= 1.02;
-				}
-
+				ImageScaleEvent(::SCALE_UNIT);
 			}
 			//flip
 			if (GetKeyState('Q') & 0x8000) {
@@ -137,30 +143,16 @@ void Direct2DWindow::OnKeyboard() {
 			}
 			// Move Window
 			if (GetKeyState(VK_UP) & 0x8000) {
-				GetWindowRect(window, &rect);
-				const int aftertop = rect.top - 20 < 0 ? 0 : rect.top - 20;
-				const int afterleft = rect.left;
-				SetWindowPos(window, nullptr, afterleft, aftertop, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
+				WindowMoveEvent({ 0, -::WINDOW_MOVE_SPEED });
 			}
 			if (GetKeyState(VK_LEFT) & 0x8000) {
-				GetWindowRect(window, &rect);
-				const int aftertop = rect.top;
-				const int afterleft = rect.left - 20 < 0 ? 0 : rect.left - 20;
-				SetWindowPos(window, nullptr, afterleft, aftertop, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
+				WindowMoveEvent({ -::WINDOW_MOVE_SPEED, 0 });
 			}
 			if (GetKeyState(VK_DOWN) & 0x8000) {
-				GetWindowRect(window, &rect);
-				const int height = rect.bottom - rect.top;
-				const int aftertop = rect.bottom >= GetSystemMetrics(SM_CYSCREEN) ? GetSystemMetrics(SM_CYSCREEN) - height : rect.top + 20;
-				const int afterleft = rect.left;
-				SetWindowPos(window, nullptr, afterleft, aftertop, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
+				WindowMoveEvent({ 0, ::WINDOW_MOVE_SPEED });
 			}
 			if (GetKeyState(VK_RIGHT) & 0x8000) {
-				GetWindowRect(window, &rect);
-				const int width = rect.right - rect.left;
-				const int aftertop = rect.top;
-				const int afterleft = rect.right >= GetSystemMetrics(SM_CXSCREEN) ? GetSystemMetrics(SM_CXSCREEN) - width : rect.left + 20;
-				SetWindowPos(window, nullptr, afterleft, aftertop, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
+				WindowMoveEvent({ ::WINDOW_MOVE_SPEED,0 });
 			}
 			if (GetAsyncKeyState('B') & 0x1) {
 				bgcolor_++;
@@ -172,9 +164,11 @@ void Direct2DWindow::OnKeyboard() {
 			if (GetAsyncKeyState('T') & 0x1) {
 				topmost_ = !topmost_;
 				if (topmost_ == true) {
+					PlaySound(L"C:/Windows/Media/Speech on.wav", nullptr, SND_FILENAME);
 					SetWindowPos(window, HWND_TOPMOST, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE);
 				}
 				else {
+					PlaySound(L"C:/Windows/Media/Speech off.wav", nullptr, SND_FILENAME);
 					SetWindowPos(window, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE);
 				}
 			}
@@ -377,14 +371,11 @@ void Direct2DWindow::OnMouse(const LPARAM lParam, const int wheel) {
 		int yPos = GET_Y_LPARAM(lParam);
 
 		if (GetKeyState(VK_LBUTTON) & 0x8000) {
-			if (prevbuttondown_ == false) {
-				prevpresspos_ = { xPos, yPos };
-				prevbuttondown_ == true;
-			}
 			if (GetKeyState(VK_SHIFT) & 0x8000) {
+				const auto addrot = 180 / std::numbers::pi * (2 * std::numbers::pi + std::arg(-std::complex(xPos - dc->GetSize().width / 2.0, yPos - dc->GetSize().height / 2.0))
+					- std::arg(-std::complex(prevcursorpos_.x - dc->GetSize().width / 2.0, prevcursorpos_.y - dc->GetSize().height / 2.0)));
+				ImageRotateEvent(addrot);
 
-				imagepos_.x += xPos - prevcursorpos_.x;
-				imagepos_.y += yPos - prevcursorpos_.y;
 			}
 			else {
 				// Release the mouse capture and start moving the window
@@ -392,32 +383,20 @@ void Direct2DWindow::OnMouse(const LPARAM lParam, const int wheel) {
 				SendMessage(window, WM_NCLBUTTONDOWN, HTCAPTION, 0);
 			}
 		}
-		else if (GetKeyState(VK_RBUTTON) < 0) {
-			if (prevbuttondown_ == false) {
-				prevpresspos_ = { xPos, yPos };
-				prevbuttondown_ == true;
-			}
-			
-			const auto addrot = 180 / std::numbers::pi * (2 * std::numbers::pi + std::arg(-std::complex(xPos - dc->GetSize().width / 2.0, yPos - dc->GetSize().height / 2.0))
-				- std::arg(-std::complex(prevcursorpos_.x - dc->GetSize().width / 2.0, prevcursorpos_.y - dc->GetSize().height / 2.0)));
-			rot_ += addrot;
-			const auto x = imagepos_.x * std::cos(addrot * std::numbers::pi / 180)
-				- imagepos_.y * std::sin(addrot * std::numbers::pi / 180);
-			const auto y = imagepos_.x * std::sin(addrot * std::numbers::pi / 180)
-				+ imagepos_.y * std::cos(addrot * std::numbers::pi / 180);
-			imagepos_.x = x;
-			imagepos_.y = y;
+		if (GetKeyState(VK_RBUTTON) < 0) {
+			imagepos_.x += xPos - prevcursorpos_.x;
+			imagepos_.y += yPos - prevcursorpos_.y;
+
+
 
 		}
-		else if (GetKeyState(VK_MBUTTON) < 0) {
+		if (GetKeyState(VK_MBUTTON) < 0) {
 			imagepos_ = { 0,0 };
 			scale_ = { 1,1 };
 			rot_ = 0;
 			alpha_ = 1;
 		}
-		else {
-			prevbuttondown_ = false;
-		}
+
 		prevcursorpos_ = { xPos, yPos };
 	}
 }

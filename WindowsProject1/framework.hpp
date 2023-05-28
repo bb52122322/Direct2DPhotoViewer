@@ -13,8 +13,10 @@
 #include <cmath>
 #include <format>
 #include <complex>
+#include <mmsystem.h>
 #pragma comment(lib, "user32.lib")
 #pragma comment(lib, "shell32")
+#pragma comment(lib, "winmm")
 
 #include <wrl.h>
 using namespace Microsoft::WRL;

@@ -2,6 +2,15 @@
 #include "framework.hpp"
 #include "Image.hpp"
 
+namespace {
+	constexpr float SCALE_UNIT = 128.0 / 125;
+	constexpr float SCALE_MAX = 10;
+	constexpr float SCALE_MIN = 0.05;
+	constexpr float ROTATE_UNIT = 3.0;
+	constexpr float WINDOW_MOVE_SPEED = 20;
+
+
+}
 
 class Direct2DWindow {
 public:
@@ -34,9 +43,7 @@ private:
 	bool topmost_ = false;
 	bool enableEvent = true;
 	// mouse events
-	D2D1_POINT_2L prevpresspos_;
 	D2D1_POINT_2L prevcursorpos_;
-	bool prevbuttondown_ = false;
 
 
 	void OnRender();
@@ -44,11 +51,12 @@ private:
 	void OnMouse(const LPARAM lParam, int wheel = 0);
 	void OnResize(UINT width, UINT height);
 
-	
+	void ImageScaleEvent(const float scale);
+	void ImageRotateEvent(const float rot);
+	void WindowMoveEvent(const D2D1_POINT_2F moveVec);
+
 	LRESULT CALLBACK WindowProcInstance(HWND window, UINT message, WPARAM wparam, LPARAM lparam);
 	inline static LRESULT CALLBACK WindowProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
-	
-
 
 	ATOM RegisterWindowClass();
 	void InitInstance();
