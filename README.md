@@ -7,7 +7,7 @@ C++/WindowsAPI/Direct2Dの勉強として、操作のシンプルさを目指し
 
 Visual Studioでインストールできるライブラリ以外の使用は禁止という縛りの基で作成。
 
-![./screenshot.png](./screenshot.png)
+![](./Screenshot.png)
 
 --- 
 
