@@ -73,6 +73,3 @@ Visual Studioでインストールできるライブラリ以外の使用は禁�
 ---
 ## 参考
 Microsoft Learn: https://learn.microsoft.com/ja-jp/windows/win32/Direct2D/direct2d-overview
-
-## 素材
-サンプル画像: https://en.wikipedia.org/wiki/File:PNG_transparency_demonstration_1.png
