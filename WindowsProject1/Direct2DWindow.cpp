@@ -361,7 +361,7 @@ void Direct2DWindow::OnMouse(const LPARAM lParam, const int wheel) {
 		int yPos = GET_Y_LPARAM(lParam);
 
 		if (GetKeyState(VK_LBUTTON) & 0x8000) {
-			if (GetKeyState(VK_SHIFT) & 0x8000) {
+			if (GetKeyState(VK_CONTROL) & 0x8000) {
 				const auto addrot = 180 / std::numbers::pi * (2 * std::numbers::pi + std::arg(-std::complex(xPos - dc->GetSize().width / 2.0, yPos - dc->GetSize().height / 2.0))
 					- std::arg(-std::complex(prevcursorpos_.x - dc->GetSize().width / 2.0, prevcursorpos_.y - dc->GetSize().height / 2.0)));
 				ImageRotateEvent(addrot);
