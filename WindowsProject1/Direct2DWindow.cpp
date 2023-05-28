@@ -1,5 +1,4 @@
 #include "Direct2DWindow.hpp"
-#include <format>
 
 Direct2DWindow::Direct2DWindow(HINSTANCE module) :
 	module(module),
@@ -15,7 +14,21 @@ Direct2DWindow::Direct2DWindow(HINSTANCE module) :
 	else if (argc > 1) {
 		filename_ = std::format(L"{}", argv[1]).c_str();
 		img_.Load(dc.Get(), filename_);
+		for (auto i = 2; i < argc; ++i) {
+			wchar_t applicationPath[FILENAME_MAX];
+			if (GetModuleFileName(nullptr, applicationPath, FILENAME_MAX)) {
+				ShellExecute(window, L"open", applicationPath, argv[i], nullptr, SW_SHOW);
+			}
+		}
 	}
+
+	// Adjast window size.
+		const auto scale = std::min(dc->GetSize().width * 1.0 / img_.GetSize().width,
+			dc->GetSize().height * 1.0 / img_.GetSize().height);
+		const auto width = std::min(img_.GetSize().width * scale, dc->GetSize().width * 1.0);
+		const auto height = std::min(img_.GetSize().height * scale, dc->GetSize().height * 1.0);
+		SetWindowPos(window, nullptr, 0, 0, width, height, SWP_NOZORDER | SWP_NOMOVE);
+		ImageResetEvent();
 	LocalFree(argv);
 }
 
@@ -36,39 +49,51 @@ void Direct2DWindow::run() {
 	}
 }
 
-void Direct2DWindow::ImageScaleEvent(const float scale) {
+void Direct2DWindow::ImageResetEvent() {
+	imagepos_ = { 0,0 };
+		const auto scale = std::min(dc->GetSize().width / img_.GetSize().width,
+			dc->GetSize().height / img_.GetSize().height);
+		scale_ = { scale,scale };
+		rot_ = 0;
+
+}
+
+void Direct2DWindow::ImageScaleEvent(const float scale, D2D1_POINT_2F center) {
 	scale_.width = scale * scale_.width;
 	scale_.height = scale * scale_.height;
 
 	auto type = scale_.width > 0 ? 1 : -1;
 	if (std::abs(scale_.width) > ::SCALE_MAX) {
+		imagepos_.x = (imagepos_.x - center.x) * (::SCALE_MAX/(scale_.width/scale)) + center.x;
 		scale_.width = (scale_.width > 0 ? 1 : -1) * ::SCALE_MAX;
 	}
 	else if (std::abs(scale_.width) < ::SCALE_MIN) {
 		scale_.width = (scale_.width > 0 ? 1 : -1) * ::SCALE_MIN;
-		imagepos_.x *= scale;
+		imagepos_.x = (imagepos_.x - center.x) * ::SCALE_MIN + center.x;
 	}
 	else {
-		imagepos_.x *= scale;
+		imagepos_.x = (imagepos_.x - center.x) * scale + center.x;
 	}
-	if (std::abs(scale_.height) > SCALE_MAX) {
+
+	if (std::abs(scale_.height) > ::SCALE_MAX) {
+		imagepos_.y = (imagepos_.y - center.y) * (::SCALE_MAX / (scale_.height / scale)) + center.y;
 		scale_.height = (scale_.height > 0 ? 1 : -1) * ::SCALE_MAX;
 	}
 	else if (std::abs(scale_.height) < ::SCALE_MIN) {
 		scale_.height = (scale_.height > 0 ? 1 : -1) * ::SCALE_MIN;
-		imagepos_.y *= scale;
+		imagepos_.y = (imagepos_.y - center.y) * SCALE_MIN+ center.y;
 	}
 	else {
-		imagepos_.y *= scale;
+		imagepos_.y = (imagepos_.y - center.y) * scale + center.y;
 	}
 }
 
 void Direct2DWindow::ImageRotateEvent(const float rot) {
 	rot_ += rot;
-	const auto x = imagepos_.x * std::cos(rot * std::numbers::pi / 180)
+	const auto x = imagepos_.x* std::cos(rot * std::numbers::pi / 180)
 		- imagepos_.y * std::sin(rot * std::numbers::pi / 180);
 	const auto y = imagepos_.x * std::sin(rot * std::numbers::pi / 180)
-		+ imagepos_.y * std::cos(rot * std::numbers::pi / 180);
+		+ imagepos_.y  * std::cos(rot * std::numbers::pi / 180);
 	imagepos_.x = x;
 	imagepos_.y = y;
 }
@@ -83,12 +108,107 @@ void Direct2DWindow::WindowMoveEvent(const D2D1_POINT_2F moveVec){
 		(rect.left + moveVec.x > GetSystemMetrics(SM_CXSCREEN) - dc->GetSize().width ?
 			GetSystemMetrics(SM_CXSCREEN)-dc->GetSize().width : rect.left + moveVec.x);
 	SetWindowPos(window, nullptr, afterleft, aftertop, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
-
 }
 
+void Direct2DWindow::WindowSizeEvent(const D2D1_SIZE_F sizeDelta) {
+	RECT rect;
+	GetWindowRect(window, &rect);
+	RECT afterRect = {
+		rect.left - sizeDelta.width,
+		rect.top - sizeDelta.height,
+		rect.right + sizeDelta.width,
+		rect.bottom + sizeDelta.height
+	};
+	const int width = afterRect.right - afterRect.left;
+	const int height = afterRect.bottom - afterRect.top;
+
+	afterRect = {
+		width <= ::WINDOW_SIZE_MIN.width ? rect.left : afterRect.left,
+		height <= ::WINDOW_SIZE_MIN.height ? rect.top : afterRect.top,
+		width <= ::WINDOW_SIZE_MIN.width ? rect.right : afterRect.right,
+		height <= ::WINDOW_SIZE_MIN.height ? rect.bottom : afterRect.bottom
+	};
+
+	afterRect = {
+		width > ::WINDOW_SIZE_MAX.width ? rect.left : afterRect.left,
+		height > ::WINDOW_SIZE_MAX.height ? rect.top : afterRect.top,
+		width > ::WINDOW_SIZE_MAX.width ? rect.right : afterRect.right,
+		height > ::WINDOW_SIZE_MAX.height ? rect.bottom : afterRect.bottom
+	};
+
+	const int diffwidth = (afterRect.right - afterRect.left) - (rect.right - rect.left);
+	const int diffheight = (afterRect.bottom - afterRect.top) - (rect.bottom - rect.top);
+
+	SetWindowPos(window, nullptr,
+		afterRect.left, afterRect.top, afterRect.right - afterRect.left, afterRect.bottom - afterRect.top, SWP_NOZORDER);
+}
+
+void Direct2DWindow::OpenFileEvent(const bool new_window) {
+	// 一時的に最上面をOFF
+	SetWindowPos(window, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE);
+
+	OPENFILENAME ofn;
+	wchar_t filepath[FILENAME_MAX] = L"";
+
+	ZeroMemory(&ofn, sizeof(ofn));
+
+	ofn.lStructSize = sizeof(ofn);
+	ofn.hwndOwner = nullptr;
+	ofn.lpstrFilter = L"All Files (*.*)\0*.*\0";
+	ofn.lpstrFile = filepath;
+	ofn.nMaxFile = FILENAME_MAX;
+	ofn.lpstrDefExt = L"";
+
+	if(new_window == true){
+		ofn.Flags = OFN_EXPLORER | OFN_FILEMUSTEXIST | OFN_ALLOWMULTISELECT;
+
+	}
+	else {
+		ofn.Flags = OFN_EXPLORER | OFN_FILEMUSTEXIST | OFN_HIDEREADONLY;
+	}
+	if (GetOpenFileName(&ofn))
+	{
+		if (new_window == true) {
+			wchar_t applicationPath[256];
+			if (GetModuleFileName(nullptr, applicationPath, 256)) {
+				wchar_t* p = ofn.lpstrFile;
+				while (*p)
+				{
+					ShellExecute(window, L"open", applicationPath, std::wstring(L"\"" + std::wstring(p) + L"\"").c_str(), nullptr, SW_SHOW);
+					p += lstrlen(p) + 1;
+				}
+			}
+		}
+		else {
+			img_.Load(dc.Get(), std::wstring(L"\"" + std::wstring(filepath) + L"\"").c_str());
+			ImageResetEvent();
+		}
+	}
+
+	if (topmost_ == true) {
+		SetWindowPos(window, HWND_TOPMOST, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE);
+	}
+	else {
+		SetWindowPos(window, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE);
+	}
+	Sleep(1000);
+}
+
+void Direct2DWindow::DroppedFileEvent(const std::wstring filepath) {
+	if (!(GetKeyState(VK_SHIFT) & 0x8000)) {
+		wchar_t applicationPath[256];
+		if (GetModuleFileName(nullptr, applicationPath, 256)) {
+			ShellExecute(window, L"open", applicationPath, filepath.c_str(), nullptr, SW_SHOW);
+		}
+	}
+	else {
+		img_.Load(dc.Get(), filepath);
+	}
+}
 
 void Direct2DWindow::OnKeyboard() {
-	static int timer = 0;
+	static int timer_flip = 0; // timer for QE (flip)
+	static int timer_esc = 0; // timer for ESC (quit)
 	if (GetAsyncKeyState(VK_CONTROL) & 0x8000 && GetAsyncKeyState(VK_F12) & 0x1) {
 		enableEvent = !enableEvent;
 		auto style = GetWindowLongPtr(window, GWL_EXSTYLE);
@@ -104,12 +224,15 @@ void Direct2DWindow::OnKeyboard() {
 	}
 	if (GetForegroundWindow() == window) {
 		RECT rect;
-		if (GetAsyncKeyState(VK_ESCAPE) & 0x1) {
-			PostQuitMessage(0);
-
+		if (GetKeyState(VK_ESCAPE) & 0x8000) {
+			if (timer_esc > 15) {
+				PostQuitMessage(0);
+			}
+			timer_esc++; 
 		}
+		else { timer_esc = 0; }
 		// NO CONTROL KEY PRESS
-		if (!(GetKeyState(VK_SHIFT) & 0x8000)) {
+		if (!(GetKeyState(VK_CONTROL) & 0x8000)) {
 			// rotate
 			if (GetKeyState('A') & 0x8000) {
 				ImageRotateEvent(-3);
@@ -119,27 +242,27 @@ void Direct2DWindow::OnKeyboard() {
 			}
 			//scale
 			if (GetKeyState('S') & 0x8000) {
-				ImageScaleEvent(1 / SCALE_UNIT);
+				ImageScaleEvent(1 / ::SCALE_SPEED_KEY);
 			}
 			if (GetKeyState('W') & 0x8000) {
-				ImageScaleEvent(::SCALE_UNIT);
+				ImageScaleEvent(::SCALE_SPEED_KEY);
 			}
 			//flip
 			if (GetKeyState('Q') & 0x8000) {
-				if (timer == 0 || timer > 60) {
+				if (timer_flip == 0 || timer_flip > 60) {
 					scale_.width *= -1;
 				}
-				timer++;
+				timer_flip++;
 
 			}
 			else if (GetKeyState('E') & 0x8000) {
-				if (timer == 0 || timer > 60) {
+				if (timer_flip == 0 || timer_flip > 60) {
 					scale_.height *= -1;
 				}
-				timer++;
+				timer_flip++;
 			}
 			else {
-				timer = 0;
+				timer_flip = 0;
 			}
 			// Move Window
 			if (GetKeyState(VK_UP) & 0x8000) {
@@ -163,13 +286,14 @@ void Direct2DWindow::OnKeyboard() {
 			}
 			if (GetAsyncKeyState('T') & 0x1) {
 				topmost_ = !topmost_;
+				
 				if (topmost_ == true) {
-					PlaySound(L"C:/Windows/Media/Speech on.wav", nullptr, SND_FILENAME);
 					SetWindowPos(window, HWND_TOPMOST, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE);
+					PlaySound(L"C:/Windows/Media/Speech on.wav", nullptr, SND_FILENAME | SND_ASYNC);
 				}
 				else {
-					PlaySound(L"C:/Windows/Media/Speech off.wav", nullptr, SND_FILENAME);
 					SetWindowPos(window, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE);
+					PlaySound(L"C:/Windows/Media/Speech off.wav", nullptr, SND_FILENAME | SND_ASYNC);
 				}
 			}
 			if (GetAsyncKeyState('N') & 0x1) {
@@ -178,78 +302,17 @@ void Direct2DWindow::OnKeyboard() {
 					ShellExecute(window, L"open", applicationPath, filename_.c_str(), nullptr, SW_SHOW);
 				}
 			}
-			if (GetAsyncKeyState('O') & 0x1) {
-				// 一時的に最上面をOFF
-				SetWindowPos(window, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE);
-
-				OPENFILENAME ofn;
-				wchar_t filename[256] = L"";
-
-				ZeroMemory(&ofn, sizeof(ofn));
-
-				ofn.lStructSize = sizeof(ofn);
-				ofn.hwndOwner = nullptr;
-				ofn.lpstrFilter = L"All Files (*.*)\0*.*\0";
-				ofn.lpstrFile = filename;
-				ofn.nMaxFile = 256;
-				ofn.Flags = OFN_EXPLORER | OFN_FILEMUSTEXIST | OFN_HIDEREADONLY;
-				ofn.lpstrDefExt = L"";
-
-				if (GetOpenFileName(&ofn))
-				{
-					wchar_t applicationPath[256];
-					if (GetModuleFileName(nullptr, applicationPath, 256)) {
-						ShellExecute(window, L"open", applicationPath, filename, nullptr, SW_SHOW);
-					}
-				}
-				if (topmost_ == true) {
-					SetWindowPos(window, HWND_TOPMOST, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE);
-				}
-				else {
-					SetWindowPos(window, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE);
-				}
-			}
 			if (GetAsyncKeyState('F') & 0x1) {
-				// 一時的に最上面をOFF
-				SetWindowPos(window, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE);
-
-				OPENFILENAME ofn;
-				wchar_t filename[256] = L"";
-
-				ZeroMemory(&ofn, sizeof(ofn));
-
-				ofn.lStructSize = sizeof(ofn);
-				ofn.hwndOwner = nullptr;
-				ofn.lpstrFilter = L"All Files (*.*)\0*.*\0";
-				ofn.lpstrFile = filename;
-				ofn.nMaxFile = 256;
-				ofn.Flags = OFN_EXPLORER | OFN_FILEMUSTEXIST | OFN_HIDEREADONLY;
-				ofn.lpstrDefExt = L"";
-
-				if (GetOpenFileName(&ofn))
-				{
-					img_.Load(dc.Get(), filename);
-				}
-				if (topmost_ == true) {
-					SetWindowPos(window, HWND_TOPMOST, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE);
-				}
-				else {
-					SetWindowPos(window, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE);
-				}
+				OpenFileEvent(false);
 			}
 
 			if (GetAsyncKeyState('R') & 0x1) {
-
-				imagepos_ = { 0,0 };
-				scale_ = { 1,1 };
-				rot_ = 0;
-				alpha_ = 1;
+				ImageResetEvent();
 
 			}
 		}
 		// Crtl + XXX
 		else {
-			timer = 0;
 			if (GetKeyState('W') & 0x8000) {
 				imagepos_.y -= 10;
 			}
@@ -272,96 +335,23 @@ void Direct2DWindow::OnKeyboard() {
 			}
 
 			if (GetKeyState(VK_UP) & 0x8000) {
-				GetWindowRect(window, &rect);
-				RECT afterRect = {
-					rect.left,
-					rect.top - 10,
-					rect.right,
-					rect.bottom + 10
-				};
-				const int height = afterRect.bottom - afterRect.top;
-
-
-				afterRect = {
-					rect.left,
-					height >= GetSystemMetrics(SM_CYSCREEN) ? rect.top : afterRect.top,
-					rect.right,
-					height >= GetSystemMetrics(SM_CYSCREEN) ? rect.bottom : afterRect.bottom
-				};
-
-				const int diffwidth = (afterRect.right - afterRect.left) - (rect.right - rect.left);
-				const int diffheight = (afterRect.bottom - afterRect.top) - (rect.bottom - rect.top);
-
-				SetWindowPos(window, nullptr,
-					afterRect.left, afterRect.top, afterRect.right - afterRect.left, afterRect.bottom - afterRect.top, SWP_NOZORDER);
+				WindowSizeEvent({0,::WINDOW_SIZE_SPEED});
 			}
 			if (GetKeyState(VK_DOWN) & 0x8000) {
-				GetWindowRect(window, &rect);
-				RECT afterRect = {
-					rect.left,
-					rect.top + 10,
-					rect.right,
-					rect.bottom - 10
-				};
-				const int height = afterRect.bottom - afterRect.top;
-
-				afterRect = {
-					rect.left,
-					height <= 100 ? rect.top : afterRect.top,
-					rect.right,
-					height <= 100 ? rect.bottom : afterRect.bottom
-				};
-
-				SetWindowPos(window, nullptr,
-					afterRect.left, afterRect.top, afterRect.right - afterRect.left, afterRect.bottom - afterRect.top, SWP_NOZORDER);
+				WindowSizeEvent({ 0,-::WINDOW_SIZE_SPEED });
 			}
 
 			if (GetKeyState(VK_RIGHT) & 0x8000) {
-				GetWindowRect(window, &rect);
-				RECT afterRect = {
-					rect.left - 10,
-					rect.top,
-					rect.right + 10,
-					rect.bottom
-				};
-				const int width = afterRect.right - afterRect.left;
-
-				afterRect = {
-					width >= GetSystemMetrics(SM_CXSCREEN) ? rect.left : afterRect.left,
-					rect.top,
-					width >= GetSystemMetrics(SM_CXSCREEN) ? rect.right : afterRect.right,
-					rect.bottom
-				};
-
-				const int diffwidth = (afterRect.right - afterRect.left) - (rect.right - rect.left);
-				const int diffheight = (afterRect.bottom - afterRect.top) - (rect.bottom - rect.top);
-
-				SetWindowPos(window, nullptr,
-					afterRect.left, afterRect.top, afterRect.right - afterRect.left, afterRect.bottom - afterRect.top, SWP_NOZORDER);
+				WindowSizeEvent({ ::WINDOW_SIZE_SPEED , 0});
 			}
 			if (GetKeyState(VK_LEFT) & 0x8000) {
-				GetWindowRect(window, &rect);
-				RECT afterRect = {
-					rect.left + 10,
-					rect.top,
-					rect.right - 10,
-					rect.bottom
-				};
-				const int width = afterRect.right - afterRect.left;
-
-				afterRect = {
-					width <= 100 ? rect.left : afterRect.left,
-					rect.top,
-					width <= 100 ? rect.right : afterRect.right,
-					rect.bottom
-				};
-
-				SetWindowPos(window, nullptr,
-					afterRect.left, afterRect.top, afterRect.right - afterRect.left, afterRect.bottom - afterRect.top, SWP_NOZORDER);
+				WindowSizeEvent({ -::WINDOW_SIZE_SPEED , 0 });
+			}
+			if (GetAsyncKeyState('F') & 0x1) {
+				OpenFileEvent(true);
 			}
 		}
 	}
-	Sleep(1);
 }
 
 void Direct2DWindow::OnMouse(const LPARAM lParam, const int wheel) {
@@ -386,9 +376,6 @@ void Direct2DWindow::OnMouse(const LPARAM lParam, const int wheel) {
 		if (GetKeyState(VK_RBUTTON) < 0) {
 			imagepos_.x += xPos - prevcursorpos_.x;
 			imagepos_.y += yPos - prevcursorpos_.y;
-
-
-
 		}
 		if (GetKeyState(VK_MBUTTON) < 0) {
 			imagepos_ = { 0,0 };
@@ -428,18 +415,18 @@ void Direct2DWindow::OnResize(UINT width, UINT height)
 		ComPtr<IDXGISurface2> surface;
 		HR(swapChain->GetBuffer(0, IID_PPV_ARGS(&surface)));
 		// Create a bitmap linked to the swap chain surface
-		D2D1_BITMAP_PROPERTIES1 bitmapProperties = D2D1::BitmapProperties1(
-			D2D1_BITMAP_OPTIONS_TARGET | D2D1_BITMAP_OPTIONS_CANNOT_DRAW,
-			D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED));
+		D2D1_BITMAP_PROPERTIES1 properties = {};
+		properties.pixelFormat.alphaMode = D2D1_ALPHA_MODE_PREMULTIPLIED;
+		properties.pixelFormat.format = DXGI_FORMAT_B8G8R8A8_UNORM;
+		properties.bitmapOptions = D2D1_BITMAP_OPTIONS_TARGET |
+			D2D1_BITMAP_OPTIONS_CANNOT_DRAW;
 
 		ComPtr<ID2D1Bitmap1> bitmap;
-		HR(dc->CreateBitmapFromDxgiSurface(surface.Get(), &bitmapProperties, &bitmap));
+		HR(dc->CreateBitmapFromDxgiSurface(surface.Get(), &properties, &bitmap));
 		// Set the bitmap as the new target in the device context
 		dc->SetTarget(bitmap.Get());
 	}
 }
-
-
 
 
 LRESULT CALLBACK Direct2DWindow::WindowProcInstance(HWND window, UINT message, WPARAM wparam, LPARAM lparam) {
@@ -450,16 +437,11 @@ LRESULT CALLBACK Direct2DWindow::WindowProcInstance(HWND window, UINT message, W
 		break;
 	case WM_MOUSEWHEEL:
 	{
-		scale_.width *= 1 + GET_WHEEL_DELTA_WPARAM(wparam) / 1200.0;
-		scale_.height *= 1 + GET_WHEEL_DELTA_WPARAM(wparam) / 1200.0;
-		if (std::abs(scale_.width) < 0.05) {
-			scale_.width = scale_.height = 0.05;
-			imagepos_.x *= 0.98;
-			imagepos_.y *= 0.98;
-		}
-		if (std::abs(scale_.width) > 10) {
-			scale_.width = scale_.height = 10;
-		}
+		POINT pt;
+		GetCursorPos(&pt); // マウスカーソルのスクリーン座標を取得
+		ScreenToClient(window, & pt);
+		ImageScaleEvent(1 + GET_WHEEL_DELTA_WPARAM(wparam) / 120.0 * ::SCALE_SPEED_WHEEL,
+			{pt.x - dc->GetSize().width / 2.0f ,pt.y - dc->GetSize().height / 2.0f });
 	}
 	break;
 	case WM_SIZE:
@@ -467,6 +449,23 @@ LRESULT CALLBACK Direct2DWindow::WindowProcInstance(HWND window, UINT message, W
 		UINT width = LOWORD(lparam);
 		UINT height = HIWORD(lparam);
 		OnResize(width, height);
+	}
+	break;
+	case WM_DROPFILES:
+	{
+		HDROP hdrop = (HDROP)wparam;
+		UINT fileCount = DragQueryFile(hdrop, ~0, nullptr, 0); // ドロップされたファイルの数を取得
+
+		for (UINT i = 0; i < fileCount; ++i)
+		{
+			WCHAR filePath[MAX_PATH];
+			DragQueryFile(hdrop, i, filePath, MAX_PATH); // ファイルのパスを取得
+
+			DroppedFileEvent(L"\"" + std::wstring(filePath) + L"\"");
+		}
+
+		DragFinish(hdrop); // ドラッグ＆ドロップ操作を終了
+
 	}
 	break;
 	case WM_MOUSEMOVE:
@@ -527,7 +526,7 @@ void Direct2DWindow::InitInstance() {
 	LONG lStyle = GetWindowLong(window, GWL_STYLE);
 	lStyle &= ~(WS_CAPTION | WS_BORDER);
 	SetWindowLong(window, GWL_STYLE, lStyle);
-	SetWindowPos(window, HWND_TOPMOST, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE);
+	DragAcceptFiles(window, TRUE); // accept dropping files
 
 }
 
@@ -614,4 +613,3 @@ void Direct2DWindow::setupDirect2D() {
 	HR(target->SetRoot(visual.Get()));
 
 }
-

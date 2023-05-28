@@ -4,7 +4,7 @@
 class Image {
 public:
 	Image(ID2D1DeviceContext* const deviceContext = nullptr, 
-		const std::wstring filename = L"");
+		const std::wstring filepath = L"");
 	HRESULT Load(ID2D1DeviceContext* const deviceContext, 
 		const std::wstring filename);
 	void Show(const D2D1_POINT_2F pos = { 0,0 },
@@ -13,10 +13,10 @@ public:
 		const float opacity = 1,
 		const bool hiquarity = true
 	);
-
+	D2D1_SIZE_F GetSize() const;
 
 private:
-	std::wstring filename_;
+	std::wstring filepath_;
 	ComPtr<IWICImagingFactory> wicFactory_;
 	ComPtr<IWICBitmapDecoder> decoder_;
 	ComPtr<IWICBitmapFrameDecode> frame_;
