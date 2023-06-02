@@ -3,25 +3,27 @@
 #include "Image.hpp"
 
 namespace {
-	constexpr float SCALE_SPEED_KEY = 128.0 / 125;
-	constexpr float SCALE_SPEED_WHEEL = SCALE_SPEED_KEY / 25;
-	constexpr float SCALE_MAX = 10;
-	constexpr float SCALE_MIN = 0.05;
-	constexpr float ROTATE_UNIT = 3.0;
-	constexpr float WINDOW_MOVE_SPEED = 20;
-	constexpr float WINDOW_SIZE_SPEED = 10;
-	const D2D1_SIZE_F WINDOW_SIZE_MAX = { GetSystemMetrics(SM_CXSCREEN),GetSystemMetrics(SM_CYSCREEN) };
+	constexpr auto SCALE_SPEED_KEY = 128 / 125.0;
+	constexpr auto SCALE_SPEED_WHEEL = SCALE_SPEED_KEY / 25;
+	constexpr auto SCALE_MAX = 10;
+	constexpr auto SCALE_MIN = 0.05;
+	constexpr auto ROTATE_UNIT = 3;
+	constexpr auto WINDOW_MOVE_SPEED = 20;
+	constexpr auto WINDOW_SIZE_SPEED = 10;
+	const D2D1_SIZE_F WINDOW_SIZE_MAX = { 
+		static_cast<float>(GetSystemMetrics(SM_CXSCREEN)),
+		static_cast<float>(GetSystemMetrics(SM_CYSCREEN)) };
 	constexpr D2D1_SIZE_F WINDOW_SIZE_MIN = { 100,100 };
 }
 
 class Direct2DWindow {
 public:
-	Direct2DWindow(HINSTANCE module);
+	Direct2DWindow(const HINSTANCE hInstance);
 
 	void run();
 
 private:
-	HINSTANCE module;
+	HINSTANCE hInstance_;
 	HWND hWnd_;
 	ComPtr<ID3D11Device> d3dDevice_;
 	ComPtr<IDXGIDevice> dxgiDevice_;
@@ -40,8 +42,8 @@ private:
 	std::wstring filepath_;
 	D2D1_POINT_2F imagepos_ = { 0,0 };
 	D2D1_SIZE_F scale_ = { 1,1 };
-	float rot_ = 0;
-	float alpha_ = 1;
+	float rot_ = 0.0f;
+	float alpha_ = 1.0f;
 	int bgcolor_ = 2;
 	bool hiquarity_ = true;
 	bool topmost_ = false;
@@ -54,8 +56,8 @@ private:
 
 	void OnRender();
 	void OnKeyboard();
-	void OnMouse(const LPARAM lParam, int wheel = 0);
-	void OnResize(UINT width, UINT height);
+	void OnMouse(const LPARAM lParam, const int wheel = 0);
+	void OnResize(const UINT width, const UINT height);
 
 	void ImageResetEvent();
 	void ImageScaleEvent(const float scale, D2D1_POINT_2F center = {0,0});
@@ -66,8 +68,8 @@ private:
 	void OpenFileEvent(const bool new_window = true);
 	void DroppedFileEvent(const std::wstring filepath);
 
-	LRESULT CALLBACK WindowProcInstance(HWND window, UINT message, WPARAM wparam, LPARAM lparam);
-	inline static LRESULT CALLBACK WindowProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+	LRESULT CALLBACK WindowProcInstance(const HWND hWnd, const UINT msg, const WPARAM wparam, const LPARAM lparam);
+	inline static LRESULT CALLBACK WindowProc(const HWND hWnd, const UINT msg, const WPARAM wParam, const LPARAM lParam);
 
 	ATOM RegisterWindowClass();
 	void InitInstance();

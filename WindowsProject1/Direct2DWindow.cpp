@@ -1,7 +1,7 @@
 #include "Direct2DWindow.hpp"
 
-Direct2DWindow::Direct2DWindow(HINSTANCE module) :
-	module(module),
+Direct2DWindow::Direct2DWindow(const HINSTANCE hInstance) :
+	hInstance_(hInstance),
 	image_(Image::Image()) {
 	Direct2DWindow::InitInstance();
 	Direct2DWindow::setupDirect2D();
@@ -62,13 +62,13 @@ void Direct2DWindow::ImageScaleEvent(const float scale, D2D1_POINT_2F center) {
 	scale_.width = scale * scale_.width;
 	scale_.height = scale * scale_.height;
 
-	auto type = scale_.width > 0 ? 1 : -1;
+	auto type = scale_.width > .0f ? 1.0f : -1.0f;
 	if (std::abs(scale_.width) > ::SCALE_MAX) {
 		imagepos_.x = (imagepos_.x - center.x) * (::SCALE_MAX/(scale_.width/scale)) + center.x;
-		scale_.width = (scale_.width > 0 ? 1 : -1) * ::SCALE_MAX;
+		scale_.width = (scale_.width > .0f ? 1.0f : -1.0f) * ::SCALE_MAX;
 	}
 	else if (std::abs(scale_.width) < ::SCALE_MIN) {
-		scale_.width = (scale_.width > 0 ? 1 : -1) * ::SCALE_MIN;
+		scale_.width = (scale_.width > .0f ? 1.0f : -1.0f) * ::SCALE_MIN;
 		imagepos_.x = (imagepos_.x - center.x) * ::SCALE_MIN + center.x;
 	}
 	else {
@@ -77,10 +77,10 @@ void Direct2DWindow::ImageScaleEvent(const float scale, D2D1_POINT_2F center) {
 
 	if (std::abs(scale_.height) > ::SCALE_MAX) {
 		imagepos_.y = (imagepos_.y - center.y) * (::SCALE_MAX / (scale_.height / scale)) + center.y;
-		scale_.height = (scale_.height > 0 ? 1 : -1) * ::SCALE_MAX;
+		scale_.height = (scale_.height > .0f ? 1.0f : -1.0f) * ::SCALE_MAX;
 	}
 	else if (std::abs(scale_.height) < ::SCALE_MIN) {
-		scale_.height = (scale_.height > 0 ? 1 : -1) * ::SCALE_MIN;
+		scale_.height = (scale_.height > .0f ? 1.0f : -1.0f) * ::SCALE_MIN;
 		imagepos_.y = (imagepos_.y - center.y) * SCALE_MIN+ center.y;
 	}
 	else {
@@ -101,10 +101,10 @@ void Direct2DWindow::ImageRotateEvent(const float rot) {
 void Direct2DWindow::WindowMoveEvent(const D2D1_POINT_2F moveVec){
 	RECT rect;
 	GetWindowRect(hWnd_, &rect);
-	const int aftertop = rect.top + moveVec.y < 0 ? 0 : 
+	const auto aftertop = rect.top + moveVec.y < 0 ? 0 : 
 		(rect.top + moveVec.y > GetSystemMetrics(SM_CYSCREEN) - d2dDeviceContext_->GetSize().height ?
 			GetSystemMetrics(SM_CYSCREEN) - d2dDeviceContext_->GetSize().height : rect.top + moveVec.y);
-	const int afterleft = rect.left + moveVec.x < 0 ? 0 :
+	const auto afterleft = rect.left + moveVec.x < 0 ? 0 :
 		(rect.left + moveVec.x > GetSystemMetrics(SM_CXSCREEN) - d2dDeviceContext_->GetSize().width ?
 			GetSystemMetrics(SM_CXSCREEN)-d2dDeviceContext_->GetSize().width : rect.left + moveVec.x);
 	SetWindowPos(hWnd_, nullptr, afterleft, aftertop, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
@@ -114,10 +114,10 @@ void Direct2DWindow::WindowSizeEvent(const D2D1_SIZE_F sizeDelta) {
 	RECT rect;
 	GetWindowRect(hWnd_, &rect);
 	RECT afterRect = {
-		rect.left - sizeDelta.width,
-		rect.top - sizeDelta.height,
-		rect.right + sizeDelta.width,
-		rect.bottom + sizeDelta.height
+		static_cast<long>(rect.left - sizeDelta.width),
+		static_cast<long>(rect.top - sizeDelta.height),
+		static_cast<long>(rect.right + sizeDelta.width),
+		static_cast<long>(rect.bottom + sizeDelta.height)
 	};
 	const int width = afterRect.right - afterRect.left;
 	const int height = afterRect.bottom - afterRect.top;
@@ -392,7 +392,7 @@ void Direct2DWindow::OnRender() {
 	d2dDeviceContext_->BeginDraw();
 	d2dDeviceContext_->Clear();
 	ComPtr<ID2D1SolidColorBrush> brush;
-	HR(d2dDeviceContext_->CreateSolidColorBrush(D2D1::ColorF(std::floor(bgcolor_ / 5), std::floor(bgcolor_ / 5), std::floor(bgcolor_ / 5), 0.25f * (bgcolor_ % 5)), brush.GetAddressOf()));
+	HR(d2dDeviceContext_->CreateSolidColorBrush(D2D1::ColorF(std::floor(bgcolor_ / 5.0f), std::floor(bgcolor_ / 5.0f), std::floor(bgcolor_ / 5.0f), .25f * (bgcolor_ % 5)), brush.GetAddressOf()));
 	d2dDeviceContext_->SetTransform(D2D1::Matrix3x2F::Identity());
 	d2dDeviceContext_->FillRectangle({ 0,0,d2dDeviceContext_->GetSize().width,d2dDeviceContext_->GetSize().height }, brush.Get());
 	image_.Show(imagepos_, scale_, rot_, 1, hiquarity_);
@@ -401,7 +401,7 @@ void Direct2DWindow::OnRender() {
 	HR(dCompositionDevice_->Commit());
 }
 
-void Direct2DWindow::OnResize(UINT width, UINT height)
+void Direct2DWindow::OnResize(const UINT width, const UINT height)
 {
 	if (d2dDeviceContext_ && dxgiSwapChain_)
 	{
@@ -429,9 +429,9 @@ void Direct2DWindow::OnResize(UINT width, UINT height)
 }
 
 
-LRESULT CALLBACK Direct2DWindow::WindowProcInstance(HWND hWnd, UINT message, WPARAM wparam, LPARAM lparam) {
+LRESULT CALLBACK Direct2DWindow::WindowProcInstance(const HWND hWnd,const UINT msg, const WPARAM wParam, const LPARAM lParam) {
 
-	switch (message) {
+	switch (msg) {
 	case WM_DESTROY:
 		PostQuitMessage(0);
 		break;
@@ -440,23 +440,23 @@ LRESULT CALLBACK Direct2DWindow::WindowProcInstance(HWND hWnd, UINT message, WPA
 		POINT pt;
 		GetCursorPos(&pt); // マウスカーソルのスクリーン座標を取得
 		ScreenToClient(hWnd, & pt);
-		ImageScaleEvent(1 + GET_WHEEL_DELTA_WPARAM(wparam) / 120.0 * ::SCALE_SPEED_WHEEL,
+		ImageScaleEvent(1 + GET_WHEEL_DELTA_WPARAM(wParam) / 120.0 * ::SCALE_SPEED_WHEEL,
 			{pt.x - d2dDeviceContext_->GetSize().width / 2.0f ,pt.y - d2dDeviceContext_->GetSize().height / 2.0f });
 	}
 	break;
 	case WM_SIZE:
 	{
-		UINT width = LOWORD(lparam);
-		UINT height = HIWORD(lparam);
+		const auto width = LOWORD(lParam);
+		const auto height = HIWORD(lParam);
 		OnResize(width, height);
 	}
 	break;
 	case WM_DROPFILES:
 	{
-		HDROP hdrop = (HDROP)wparam;
-		UINT fileCount = DragQueryFile(hdrop, ~0, nullptr, 0); // ドロップされたファイルの数を取得
+		const HDROP hdrop = reinterpret_cast<HDROP>(wParam);
+		const auto fileCount = DragQueryFile(hdrop, ~0, nullptr, 0); // ドロップされたファイルの数を取得
 
-		for (UINT i = 0; i < fileCount; ++i)
+		for (auto i = 0u; i < fileCount; ++i)
 		{
 			WCHAR filePath[MAX_PATH];
 			DragQueryFile(hdrop, i, filePath, MAX_PATH); // ファイルのパスを取得
@@ -472,24 +472,24 @@ LRESULT CALLBACK Direct2DWindow::WindowProcInstance(HWND hWnd, UINT message, WPA
 	case WM_LBUTTONDOWN:
 	case WM_RBUTTONDOWN:
 	case WM_MBUTTONDOWN:
-		OnMouse(lparam);
+		OnMouse(lParam);
 		break;
 	default:
-		return DefWindowProc(hWnd, message, wparam, lparam);
+		return DefWindowProc(hWnd, msg, wParam, lParam);
 	}
 	return 0;
 }
 
-inline LRESULT CALLBACK Direct2DWindow::WindowProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+inline LRESULT CALLBACK Direct2DWindow::WindowProc(const HWND hWnd, const UINT msg, const WPARAM wParam, const LPARAM lParam) {
 
 	Direct2DWindow* app;
 	switch (msg) {
 	case WM_CREATE:
-		app = (Direct2DWindow*)(((LPCREATESTRUCT)lParam)->lpCreateParams);
-		SetWindowLongPtr(hWnd, GWLP_USERDATA, (LONG_PTR)app);
+		app = reinterpret_cast<Direct2DWindow*>(((LPCREATESTRUCT)lParam)->lpCreateParams);
+		SetWindowLongPtr(hWnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(app));
 		break;
 	default:
-		app = (Direct2DWindow*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
+		app = reinterpret_cast<Direct2DWindow*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
 	}
 	return app->WindowProcInstance(hWnd, msg, wParam, lParam);
 
@@ -504,7 +504,7 @@ ATOM Direct2DWindow::RegisterWindowClass()
 	wcex.lpfnWndProc = WindowProc;
 	wcex.cbClsExtra = 0;
 	wcex.cbWndExtra = sizeof(LONG_PTR);
-	wcex.hInstance = module;
+	wcex.hInstance = hInstance_;
 	wcex.hbrBackground = nullptr;
 	wcex.lpszMenuName = L"window";
 	wcex.hCursor = LoadCursor(nullptr, IDI_APPLICATION);
@@ -521,9 +521,9 @@ void Direct2DWindow::InitInstance() {
 		WS_OVERLAPPEDWINDOW | WS_VISIBLE,
 		CW_USEDEFAULT, CW_USEDEFAULT,
 		CW_USEDEFAULT, CW_USEDEFAULT,
-		nullptr, nullptr, module, this);
+		nullptr, nullptr, hInstance_, this);
 
-	LONG lStyle = GetWindowLong(hWnd_, GWL_STYLE);
+	auto lStyle = GetWindowLong(hWnd_, GWL_STYLE);
 	lStyle &= ~(WS_CAPTION | WS_BORDER);
 	SetWindowLong(hWnd_, GWL_STYLE, lStyle);
 	DragAcceptFiles(hWnd_, TRUE); // accept dropping files
