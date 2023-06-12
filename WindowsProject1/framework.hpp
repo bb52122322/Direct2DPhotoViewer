@@ -18,6 +18,8 @@
 #pragma comment(lib, "shell32")
 #pragma comment(lib, "winmm")
 
+#include "resource.h"
+
 #include <wrl.h>
 using namespace Microsoft::WRL;
 #include <dxgi1_3.h>

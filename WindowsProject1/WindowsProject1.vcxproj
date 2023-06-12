@@ -145,7 +145,15 @@
     <ClInclude Include="Direct2DWindow.hpp" />
     <ClInclude Include="framework.hpp" />
     <ClInclude Include="Image.hpp" />
+    <ClInclude Include="resource.h" />
     <ClInclude Include="text.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="Direct2DWindow.ico" />
+    <Image Include="small.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="WindowsProject1.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -66,7 +66,7 @@ private:
 	void WindowSizeEvent(const D2D1_SIZE_F sizeDelta);
 
 	void OpenFileEvent(const bool new_window = true);
-	void DroppedFileEvent(const std::wstring filepath);
+	void DroppedFileEvent(const std::wstring filepath, const bool newWindow=true);
 
 	LRESULT CALLBACK WindowProcInstance(const HWND hWnd, const UINT msg, const WPARAM wparam, const LPARAM lparam);
 	inline static LRESULT CALLBACK WindowProc(const HWND hWnd, const UINT msg, const WPARAM wParam, const LPARAM lParam);

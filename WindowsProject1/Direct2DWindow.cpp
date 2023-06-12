@@ -194,8 +194,8 @@ void Direct2DWindow::OpenFileEvent(const bool new_window) {
 	Sleep(1000);
 }
 
-void Direct2DWindow::DroppedFileEvent(const std::wstring filepath) {
-	if (!(GetKeyState(VK_SHIFT) & 0x8000)) {
+void Direct2DWindow::DroppedFileEvent(const std::wstring filepath, const bool newWindow) {
+	if (newWindow == true || GetKeyState(VK_CONTROL) & 0x8000) {
 		wchar_t applicationPath[256];
 		if (GetModuleFileName(nullptr, applicationPath, 256)) {
 			ShellExecute(hWnd_, L"open", applicationPath, filepath.c_str(), nullptr, SW_SHOW);
@@ -203,6 +203,7 @@ void Direct2DWindow::DroppedFileEvent(const std::wstring filepath) {
 	}
 	else {
 		image_.Load(d2dDeviceContext_.Get(), filepath);
+		ImageResetEvent();
 	}
 }
 
@@ -461,11 +462,12 @@ LRESULT CALLBACK Direct2DWindow::WindowProcInstance(const HWND hWnd,const UINT m
 			WCHAR filePath[MAX_PATH];
 			DragQueryFile(hdrop, i, filePath, MAX_PATH); // ファイルのパスを取得
 
-			DroppedFileEvent(L"\"" + std::wstring(filePath) + L"\"");
+			DroppedFileEvent(L"\"" + std::wstring(filePath) + L"\"",
+				i == 0 ? false: true
+				);
 		}
 
 		DragFinish(hdrop); // ドラッグ＆ドロップ操作を終了
-
 	}
 	break;
 	case WM_MOUSEMOVE:
@@ -505,6 +507,8 @@ ATOM Direct2DWindow::RegisterWindowClass()
 	wcex.cbClsExtra = 0;
 	wcex.cbWndExtra = sizeof(LONG_PTR);
 	wcex.hInstance = hInstance_;
+	wcex.hIcon = LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_ICON1));
+	wcex.hIconSm = LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_SMALL));
 	wcex.hbrBackground = nullptr;
 	wcex.lpszMenuName = L"window";
 	wcex.hCursor = LoadCursor(nullptr, IDI_APPLICATION);
@@ -517,7 +521,7 @@ void Direct2DWindow::InitInstance() {
 	RegisterWindowClass();
 
 	hWnd_ = CreateWindowEx(WS_EX_LAYERED | WS_EX_NOREDIRECTIONBITMAP,
-		L"D2DWindow", L"Sample",
+		L"D2DWindow", L"Direct2D Photo Viewer",
 		WS_OVERLAPPEDWINDOW | WS_VISIBLE,
 		CW_USEDEFAULT, CW_USEDEFAULT,
 		CW_USEDEFAULT, CW_USEDEFAULT,
